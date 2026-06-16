@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shell:
+    name: Shell + Python + server test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ShellCheck
+        run: shellcheck -e SC1091 pcf scripts/lib.sh scripts/selftest.sh
+
+      - name: Python syntax
+        run: python3 -m py_compile scripts/serve.py scripts/_game.py scripts/check-games.py
+
+      - name: Validate games.json
+        run: python3 scripts/check-games.py
+
+      - name: serve.py self-test (HTTP Range + security)
+        run: bash scripts/selftest.sh
+
+      - name: Launcher smoke (list/doctor, no downloads)
+        run: |
+          chmod +x pcf
+          ./pcf list
+          ./pcf doctor
+
+  powershell:
+    name: PowerShell launcher parses
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse pcf.ps1
+        shell: pwsh
+        run: |
+          $errs = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("$PWD/pcf.ps1", [ref]$null, [ref]$errs) | Out-Null
+          if ($errs -and $errs.Count -gt 0) {
+            $errs | ForEach-Object { Write-Error $_.Message }
+            exit 1
+          }
+          Write-Host "pcf.ps1 parses OK"

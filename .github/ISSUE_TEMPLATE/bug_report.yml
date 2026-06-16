@@ -1,0 +1,47 @@
+name: 🐛 Bug report
+description: Something doesn't work / Algo no funciona
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! Please fill this in. · ¡Gracias! Rellena lo siguiente.
+  - type: input
+    id: os
+    attributes:
+      label: Operating system / Sistema operativo
+      placeholder: "macOS 14 / Ubuntu 24.04 / Windows 11"
+    validations:
+      required: true
+  - type: input
+    id: game
+    attributes:
+      label: Game id / id del juego
+      placeholder: "pcf5"
+  - type: textarea
+    id: command
+    attributes:
+      label: Command you ran / Comando que ejecutaste
+      placeholder: "./pcf play pcf5"
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output / Salida (and `./pcf doctor`)
+      description: Paste the terminal output. · Pega la salida de la terminal.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect? / ¿Qué esperabas?
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I ran `./pcf doctor` and included the output / He ejecutado `./pcf doctor`
+        - label: The download finished (`./pcf get <id>`) / La descarga terminó

@@ -7,6 +7,7 @@
 *Juega a los míticos PC Fútbol en tu ordenador — un solo comando, en tu navegador.*
 
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue)]()
+[![CI](https://github.com/i10s/pc-futbol-local/actions/workflows/ci.yml/badge.svg)](https://github.com/i10s/pc-futbol-local/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Games](https://img.shields.io/badge/games-11-orange)]()
 [![Made with](https://img.shields.io/badge/emulator-v86-purple)](https://github.com/copy/v86)
@@ -54,6 +55,11 @@ machine** so you can play offline, like in the old days.
 
 Check everything is fine: `./pcf doctor`
 
+> 🐧 **Linux**: most distros already ship `curl`, `python3` and a browser. If
+> something is missing, `./pcf doctor` prints the exact install command for your
+> distro (`apt`/`dnf`/`pacman`/`zypper`/`apk`). You can also add a launcher to
+> your applications menu with `./pcf install-desktop`. **WSL** works too.
+
 ### Quick start
 
 **macOS / Linux**
@@ -83,8 +89,15 @@ instant**. Your in-game saved games are kept in your browser.
 | `pcf play <id>`      | Download if needed, then play in your browser        |
 | `pcf list`           | List every game and its id (● = already downloaded)  |
 | `pcf get <id>`       | Pre-download a game for offline play (no launch)     |
+| `pcf menu`           | Open the game menu in your browser                   |
+| `pcf update`         | Refresh the local emulator runtime                   |
+| `pcf install-desktop`| **(Linux)** add an app launcher to your menu         |
 | `pcf doctor`         | Check your environment                               |
 | `pcf clean`          | Remove all downloaded data                           |
+
+> 💡 Tip: set `PCF_PORT` to change the base port, or `PCF_NO_OPEN=1` to skip
+> opening the browser automatically. A free port is picked automatically, so you
+> can run several games at once.
 
 ### Available games
 
@@ -155,6 +168,11 @@ ordenador**, para que puedas jugar offline, como en los viejos tiempos.
 
 Comprueba que todo está bien: `./pcf doctor`
 
+> 🐧 **Linux**: la mayoría de distros ya traen `curl`, `python3` y un navegador.
+> Si falta algo, `./pcf doctor` te dice el comando exacto para tu distro
+> (`apt`/`dnf`/`pacman`/`zypper`/`apk`). También puedes añadir un acceso directo
+> a tu menú de aplicaciones con `./pcf install-desktop`. **WSL** también funciona.
+
 ### Inicio rápido
 
 **macOS / Linux**
@@ -184,8 +202,15 @@ offline e instantáneo**. Tus partidas guardadas se conservan en el navegador.
 | `pcf play <id>`      | Descarga si hace falta y juega en el navegador           |
 | `pcf list`           | Lista los juegos y sus id (● = ya descargado)            |
 | `pcf get <id>`       | Descarga un juego para jugar offline (sin abrirlo)       |
+| `pcf menu`           | Abre el menú de juegos en el navegador                   |
+| `pcf update`         | Actualiza el runtime del emulador                        |
+| `pcf install-desktop`| **(Linux)** añade un acceso directo a tu menú de apps    |
 | `pcf doctor`         | Comprueba tu entorno                                     |
 | `pcf clean`          | Borra todo lo descargado                                 |
+
+> 💡 Truco: usa `PCF_PORT` para cambiar el puerto base, o `PCF_NO_OPEN=1` para
+> no abrir el navegador automáticamente. El puerto libre se elige solo, así que
+> puedes tener varios juegos a la vez.
 
 ### Juegos disponibles
 
@@ -225,6 +250,27 @@ Más detalle en la [guía completa en español](docs/es.md).
   interacción del usuario para iniciar el audio.
 - **Se borraron las partidas** → viven en el almacenamiento del navegador para
   ese sitio `localhost`; no borres los datos del sitio y usa el mismo navegador.
+
+---
+
+## 🤝 Contributing / Comunidad
+
+Contributions are very welcome! · ¡Las contribuciones son muy bienvenidas!
+
+- 📋 Read the [Contributing guide](CONTRIBUTING.md) (EN/ES) and the
+  [Code of Conduct](CODE_OF_CONDUCT.md).
+- 🐛 Found a bug or want a game added? Open an [issue](https://github.com/i10s/pc-futbol-local/issues/new/choose).
+- 🔒 Security reports: see [SECURITY.md](SECURITY.md).
+- 📝 Changes are tracked in the [CHANGELOG](CHANGELOG.md).
+
+For developers:
+
+```bash
+make lint     # ShellCheck + Python syntax
+make check    # validate data/games.json
+make test     # hermetic HTTP Range self-test (no downloads)
+make all      # everything CI runs
+```
 
 ---
 

@@ -27,3 +27,7 @@ desktop.ini
 *.log
 .idea/
 .vscode/
+
+# Python caches
+__pycache__/
+*.pyc

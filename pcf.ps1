@@ -167,16 +167,15 @@ function Start-RangeServer($root, $port) {
   } finally { $listener.Stop() }
 }
 
-function Play($g) {
-  Mirror-Runtime
-  if (-not (Game-Present $g)) { Download-Game $g }
-  $url = "http://127.0.0.1:$Port/kiosk.html?game=$($g.id)"
-  Ok "Now playing: $($g.name)"
-  Write-Host "  $url"
-  Write-Host "  Press ▶ JUGAR / PLAY in the browser. Saved games persist in this browser." -ForegroundColor DarkGray
-  Write-Host "  Close this window (or Ctrl+C) to stop the server." -ForegroundColor DarkGray
-  Start-Process $url
+function Find-FreePort([int]$start) {
+  for ($p = $start; $p -lt $start + 50; $p++) {
+    $l = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $p)
+    try { $l.Start(); $l.Stop(); return $p } catch { continue }
+  }
+  return $start
+}
 
+function Serve-Dir {
   $py = Get-Python
   if ($py) {
     & $py (Join-Path $Root "scripts/serve.py") --root $PlayDir --port $Port --host 127.0.0.1
@@ -184,6 +183,37 @@ function Play($g) {
     Warn "Python not found — using the built-in server (install Python 3 for best performance)."
     Start-RangeServer $PlayDir $Port
   }
+}
+
+function Play($g) {
+  Mirror-Runtime
+  if (-not (Game-Present $g)) { Download-Game $g }
+  $script:Port = Find-FreePort $Port
+  $url = "http://127.0.0.1:$Port/kiosk.html?game=$($g.id)"
+  Ok "Now playing: $($g.name)"
+  Write-Host "  $url"
+  Write-Host "  Press ▶ JUGAR / PLAY in the browser. Saved games persist in this browser." -ForegroundColor DarkGray
+  Write-Host "  Close this window (or Ctrl+C) to stop the server." -ForegroundColor DarkGray
+  Start-Process $url
+  Serve-Dir
+}
+
+function Menu {
+  Mirror-Runtime
+  $script:Port = Find-FreePort $Port
+  $url = "http://127.0.0.1:$Port/index.html"
+  Ok "Game menu — pick a downloaded title in the browser"
+  Write-Host "  $url"
+  Write-Host "  Close this window (or Ctrl+C) to stop the server." -ForegroundColor DarkGray
+  Start-Process $url
+  Serve-Dir
+}
+
+function Update {
+  Info "Refreshing the local emulator runtime…"
+  Remove-Item -Force (Join-Path $PlayDir ".runtime-ok") -ErrorAction SilentlyContinue
+  Mirror-Runtime
+  Ok "Runtime updated. Your downloaded games are kept."
 }
 
 function Show-List {
@@ -214,6 +244,8 @@ Usage
   .\pcf.ps1 play <id>     Download (if needed) and play a game
   .\pcf.ps1 list          List all available games
   .\pcf.ps1 get <id>      Download a game for offline play (no launch)
+  .\pcf.ps1 menu          Open the game menu in your browser
+  .\pcf.ps1 update        Refresh the local emulator runtime
   .\pcf.ps1 doctor        Check your environment
   .\pcf.ps1 clean         Remove all downloaded data
 
@@ -229,6 +261,8 @@ switch ($Command.ToLower()) {
   "download" { if (-not $Game) { Die "usage: .\pcf.ps1 download <id>" }; Download-Game (Find-Game $Game) }
   "list"   { Show-List }
   "ls"     { Show-List }
+  "menu"   { Menu }
+  "update" { Update }
   "doctor" { Doctor }
   "clean"  {
     $a = Read-Host "Remove ALL downloaded games and the local emulator ($PlayDir)? [y/N]"

@@ -1,0 +1,27 @@
+name: 🎮 Game request
+description: Request a game available on the official site / Pide un juego del sitio oficial
+labels: ["game-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Only games that are **freely available** on the official servers can be
+        added. · Solo se pueden añadir juegos **disponibles gratuitamente** en
+        los servidores oficiales.
+  - type: input
+    id: name
+    attributes:
+      label: Game name / Nombre del juego
+      placeholder: "PC Fútbol 2000"
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: Official URL / URL oficial
+      placeholder: "https://online.dinamicmultimedia.es/kiosk.html?game=..."
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes / Notas
+      placeholder: "Year, platform (DOS/Win98), anything useful."

@@ -22,7 +22,8 @@ while [ -h "$SOURCE" ]; do
   SOURCE="$(readlink "$SOURCE")"
   [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
 done
-export PCF_ROOT="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+PCF_ROOT="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+export PCF_ROOT
 
 # shellcheck source=scripts/lib.sh
 source "$PCF_ROOT/scripts/lib.sh"
@@ -32,15 +33,19 @@ usage() {
 ${c_bold}PC Fútbol Local${c_rst} — play the classics in your browser.
 
 ${c_bold}Usage${c_rst}
-  ./pcf play <id>     Download (if needed) and play a game
+  ./pcf play <id>      Download (if needed) and play a game
   ./pcf list          List all available games
   ./pcf get <id>      Download a game for offline play (no launch)
+  ./pcf menu          Open the game menu in your browser
+  ./pcf update        Refresh the local emulator runtime
   ./pcf doctor        Check your environment
+  ./pcf install-desktop   (Linux) add an app launcher to your menu
   ./pcf clean         Remove all downloaded data
 
 ${c_bold}Examples${c_rst}
   ./pcf play pcf5
   ./pcf list
+  PCF_PORT=9001 ./pcf play pcf7   # custom port
 
 Run ${c_bold}./pcf list${c_rst} to see all game ids.
 EOF
@@ -53,6 +58,9 @@ main() {
     play)            cmd_play "$@";;
     get|download)    cmd_get "$@";;
     list|ls)         cmd_list;;
+    menu)            cmd_menu;;
+    update)          cmd_update;;
+    install-desktop) cmd_install_desktop;;
     doctor)          cmd_doctor;;
     clean)           cmd_clean;;
     help|-h|--help)  usage;;

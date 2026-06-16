@@ -39,6 +39,28 @@ ok()   { printf "%s✓%s %s\n" "$c_grn" "$c_rst" "$*"; }
 warn() { printf "%s!%s %s\n" "$c_ylw" "$c_rst" "$*" >&2; }
 die()  { printf "%s✗%s %s\n" "$c_red" "$c_rst" "$*" >&2; exit 1; }
 
+# --- OS / distro detection ----------------------------------------------------
+os_kind() {
+  case "$(uname -s)" in
+    Darwin) echo macos;;
+    Linux)  if grep -qi microsoft /proc/version 2>/dev/null; then echo wsl; else echo linux; fi;;
+    *)      echo other;;
+  esac
+}
+linux_distro() { ( . /etc/os-release 2>/dev/null && echo "${PRETTY_NAME:-Linux}" ) || echo Linux; }
+
+# Suggest the right install command for the current package manager.
+pkg_hint() {
+  local tool="$1"
+  if   command -v apt-get >/dev/null 2>&1; then echo "sudo apt install -y $tool"
+  elif command -v dnf     >/dev/null 2>&1; then echo "sudo dnf install -y $tool"
+  elif command -v pacman  >/dev/null 2>&1; then echo "sudo pacman -S --noconfirm $tool"
+  elif command -v zypper  >/dev/null 2>&1; then echo "sudo zypper install -y $tool"
+  elif command -v apk     >/dev/null 2>&1; then echo "sudo apk add $tool"
+  elif command -v brew    >/dev/null 2>&1; then echo "brew install $tool"
+  else echo "install '$tool' with your package manager"; fi
+}
+
 # --- Tools --------------------------------------------------------------------
 PY=""
 pick_python() {
@@ -49,15 +71,39 @@ pick_python() {
 }
 
 require_tools() {
-  command -v curl >/dev/null 2>&1 || die "curl is required but not found."
-  pick_python || die "Python 3 is required but not found. Install it and retry."
+  command -v curl >/dev/null 2>&1 || die "curl is required. Install it with:  $(pkg_hint curl)"
+  pick_python || die "Python 3 is required. Install it with:  $(pkg_hint python3)"
 }
 
+# Open a URL in the default browser across macOS, Linux, WSL and *BSD.
 open_url() {
   local url="$1"
-  if command -v open >/dev/null 2>&1; then open "$url"
-  elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$url" >/dev/null 2>&1 &
+  if [ -n "${PCF_NO_OPEN:-}" ]; then info "Open your browser at: $url"; return; fi
+  if   command -v open       >/dev/null 2>&1; then open "$url"                              # macOS
+  elif command -v wslview    >/dev/null 2>&1; then wslview "$url" >/dev/null 2>&1 &          # WSL (wslu)
+  elif command -v powershell.exe >/dev/null 2>&1 && grep -qi microsoft /proc/version 2>/dev/null; then
+       powershell.exe -NoProfile -Command "Start-Process '$url'" >/dev/null 2>&1 &           # WSL fallback
+  elif command -v xdg-open   >/dev/null 2>&1; then xdg-open "$url" >/dev/null 2>&1 &         # freedesktop
+  elif command -v gio        >/dev/null 2>&1; then gio open "$url" >/dev/null 2>&1 &         # GNOME
+  elif command -v sensible-browser >/dev/null 2>&1; then sensible-browser "$url" >/dev/null 2>&1 &
+  elif [ -n "${BROWSER:-}" ]; then "$BROWSER" "$url" >/dev/null 2>&1 &
   else info "Open your browser at: $url"; fi
+}
+
+# Find a free TCP port starting at $PORT (so two games can run side by side).
+find_free_port() {
+  "$PY" - "$PORT" <<'PY'
+import socket, sys
+start = int(sys.argv[1])
+for p in range(start, start + 50):
+    s = socket.socket()
+    try:
+        s.bind(("127.0.0.1", p)); s.close(); print(p); break
+    except OSError:
+        continue
+else:
+    print(start)
+PY
 }
 
 game_vars() { eval "$("$PY" "$SCRIPTS_DIR/_game.py" "$1")" || die "Unknown game: $1"; }
@@ -146,22 +192,30 @@ print(next(x['size'] for g in d['games'] if g['id']=='$id' for x in g['disks'] i
 SERVER_PID=""
 cleanup() { [ -n "$SERVER_PID" ] && kill "$SERVER_PID" >/dev/null 2>&1 || true; }
 
-serve_and_play() {
-  local id="$1"; game_vars "$id"
+start_server() {
   trap cleanup EXIT INT TERM
-
+  PORT="$(find_free_port)"
   "$PY" "$SCRIPTS_DIR/serve.py" --root "$PLAY_DIR" --port "$PORT" --host 127.0.0.1 &
   SERVER_PID=$!
   sleep 1
-  kill -0 "$SERVER_PID" 2>/dev/null || die "Local server failed to start (port $PORT busy? set PCF_PORT)."
+  kill -0 "$SERVER_PID" 2>/dev/null || die "Local server failed to start on port $PORT."
+}
 
-  local url="http://127.0.0.1:$PORT/kiosk.html?game=$id"
-  ok "Now playing: ${c_bold}$GNAME${c_rst}"
+# Serve $PLAY_DIR and open the browser at $path; blocks until Ctrl+C.
+serve_path() {
+  local path="$1" label="$2"
+  start_server
+  local url="http://127.0.0.1:$PORT/$path"
+  ok "$label"
   log "  $url"
-  log "  ${c_dim}Press ▶ JUGAR / PLAY in the browser. Saved games persist in this browser.${c_rst}"
-  log "  ${c_dim}Press Ctrl+C here to stop the server.${c_rst}"
+  log "  ${c_dim}Saved games persist in this browser. Press Ctrl+C here to stop.${c_rst}"
   open_url "$url"
   wait "$SERVER_PID"
+}
+
+serve_and_play() {
+  local id="$1"; game_vars "$id"
+  serve_path "kiosk.html?game=$id" "Now playing: ${c_bold}$GNAME${c_rst}"
 }
 
 # --- Commands -----------------------------------------------------------------
@@ -190,12 +244,55 @@ cmd_play() {
 }
 
 cmd_doctor() {
+  local os; os="$(os_kind)"
   log "${c_bold}Environment check${c_rst}"
-  printf "  OS        : %s %s\n" "$(uname -s)" "$(uname -m)"
-  if command -v curl >/dev/null 2>&1; then ok "curl found"; else warn "curl MISSING"; fi
-  if pick_python; then ok "python found ($PY $($PY -c 'import sys;print(".".join(map(str,sys.version_info[:3])))'))"; else warn "python3 MISSING"; fi
-  if [ -d "$PLAY_DIR" ]; then ok "local data dir: $PLAY_DIR"; else info "no data downloaded yet"; fi
-  [ -f "$PLAY_DIR/.runtime-ok" ] && ok "emulator runtime installed" || info "emulator runtime not installed yet"
+  printf "  OS        : %s (%s %s)\n" "$os" "$(uname -s)" "$(uname -m)"
+  if [ "$os" = linux ] || [ "$os" = wsl ]; then printf "  Distro    : %s\n" "$(linux_distro)"; fi
+  if command -v curl >/dev/null 2>&1; then ok "curl found"; else warn "curl MISSING → $(pkg_hint curl)"; fi
+  if pick_python; then ok "python found ($PY $($PY -c 'import sys;print(".".join(map(str,sys.version_info[:3])))'))"; else warn "python MISSING → $(pkg_hint python3)"; fi
+  if [ -n "${PCF_NO_OPEN:-}" ]; then info "browser auto-open disabled (PCF_NO_OPEN set)"
+  elif command -v open >/dev/null 2>&1 || command -v xdg-open >/dev/null 2>&1 || command -v wslview >/dev/null 2>&1 || command -v gio >/dev/null 2>&1 || [ -n "${BROWSER:-}" ]; then ok "a browser launcher is available"
+  else warn "no browser launcher found (the URL will be printed so you can open it manually)"; fi
+  if [ -d "$PLAY_DIR" ]; then
+    local used; used=$(du -sh "$PLAY_DIR" 2>/dev/null | cut -f1)
+    ok "local data dir: $PLAY_DIR (${used:-?} used)"
+  else info "no data downloaded yet"; fi
+  if [ -f "$PLAY_DIR/.runtime-ok" ]; then ok "emulator runtime installed"; else info "emulator runtime not installed yet"; fi
+}
+
+cmd_menu() {
+  mirror_runtime
+  serve_path "index.html" "Game menu — pick a downloaded title in the browser"
+}
+
+cmd_update() {
+  info "Refreshing the local emulator runtime…"
+  rm -f "$PLAY_DIR/.runtime-ok"
+  mirror_runtime
+  ok "Runtime updated. Your downloaded games are kept."
+}
+
+cmd_install_desktop() {
+  case "$(os_kind)" in linux|wsl) ;; *) die "install-desktop is only available on Linux.";; esac
+  mirror_runtime
+  local apps="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+  mkdir -p "$apps"
+  local icon="$PLAY_DIR/assets/dinamic.png"; [ -f "$icon" ] || icon="applications-games"
+  local dest="$apps/pc-futbol-local.desktop"
+  cat > "$dest" <<EOF
+[Desktop Entry]
+Type=Application
+Name=PC Fútbol Local
+Comment=Play the classic PC Fútbol games locally
+Exec=$PCF_ROOT/pcf menu
+Icon=$icon
+Terminal=true
+Categories=Game;Emulator;
+Keywords=futbol;football;manager;dinamic;retro;
+EOF
+  chmod +x "$dest" 2>/dev/null || true
+  ok "Desktop entry installed: $dest"
+  log "  ${c_dim}It will appear in your applications menu (runs 'pcf menu').${c_rst}"
 }
 
 cmd_clean() {

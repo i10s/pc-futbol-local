@@ -1,0 +1,5 @@
+{
+  "_comment": "Active community mirror. Disk images are downloaded from this Cloudflare Worker by default (proxy + edge cache). Savestates stay on the official origin (tiny). Override per-user with PCF_MIRROR / PCF_DISKS_BASE / PCF_ORIGIN_BASE.",
+  "disks": "https://pcf-mirror.ifuentes.workers.dev",
+  "origin": "https://online.dinamicmultimedia.es"
+}

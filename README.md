@@ -104,6 +104,11 @@ instant**. Your in-game saved games are kept in your browser.
 > (or ship a `data/mirror.json` so it's the default for everyone), and throttle
 > with `PCF_RATE_LIMIT=3M`. Downloads are cached locally and resumed, so each
 > game is only fetched once. See [mirror/cloudflare/](mirror/cloudflare/).
+>
+> ✅ **Already on by default.** This repo ships a live mirror
+> (`pcf-mirror.ifuentes.workers.dev`, proxy + edge cache), so disk images come
+> from Cloudflare out of the box — the official origin is hit at most once per
+> file. To bypass it, set `PCF_MIRROR=https://discos.dinamicmultimedia.es`.
 
 | id           | Year | Game                                          | Approx. size |
 | ------------ | ---- | --------------------------------------------- | ------------ |
@@ -222,6 +227,12 @@ offline e instantáneo**. Tus partidas guardadas se conservan en el navegador.
 > por defecto de todos) y limita la velocidad con `PCF_RATE_LIMIT=3M`. Las
 > descargas se cachean en local y se reanudan, así cada juego se baja una sola
 > vez. Mira [mirror/cloudflare/](mirror/cloudflare/).
+>
+> ✅ **Ya activo por defecto.** Este repo incluye un mirror en marcha
+> (`pcf-mirror.ifuentes.workers.dev`, proxy + caché en el edge), así que las
+> imágenes de disco vienen de Cloudflare desde el primer momento — el origen
+> oficial se toca como mucho una vez por fichero. Para saltártelo, usa
+> `PCF_MIRROR=https://discos.dinamicmultimedia.es`.
 
 | id           | Año  | Juego                                         | Tamaño aprox. |
 | ------------ | ---- | --------------------------------------------- | ------------- |

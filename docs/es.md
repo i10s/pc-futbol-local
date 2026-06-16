@@ -98,6 +98,23 @@ desconectarte de internet y seguir jugando.
 El único paso que necesita internet es la descarga inicial desde los servidores
 oficiales.
 
+### Mirror comunitario (no saturar el origen)
+
+Las descargas se reanudan y se omiten si ya están completas, así que cada juego
+se baja **una sola vez** por máquina. Para proteger los servidores oficiales a
+escala comunitaria puedes enrutar las imágenes de disco por un CDN:
+
+- `PCF_MIRROR=https://tu-mirror` (o `PCF_DISKS_BASE`) — origen de los discos.
+- `PCF_ORIGIN_BASE=https://…` — origen del runtime + savestate.
+- `PCF_RATE_LIMIT=3M` — limita la velocidad para ser amable con el origen.
+- `PCF_UA="…"` — cambia el User-Agent identificable.
+- `data/mirror.json` — incluye un mirror por defecto para que **todos** se
+  beneficien sin variables de entorno (copia `data/mirror.example.json`).
+
+En [`mirror/cloudflare/`](../mirror/cloudflare/) tienes un mirror **Cloudflare**
+listo para desplegar (Worker con proxy + caché en el edge, o R2 sin coste de
+salida).
+
 ## Estructura del proyecto
 
 ```

@@ -99,7 +99,11 @@ instant**. Your in-game saved games are kept in your browser.
 > opening the browser automatically. A free port is picked automatically, so you
 > can run several games at once.
 
-### Available games
+> 🌐 **Be a good neighbour.** To avoid hammering the official servers you can
+> download from a community **Cloudflare** mirror: set `PCF_MIRROR=https://…`
+> (or ship a `data/mirror.json` so it's the default for everyone), and throttle
+> with `PCF_RATE_LIMIT=3M`. Downloads are cached locally and resumed, so each
+> game is only fetched once. See [mirror/cloudflare/](mirror/cloudflare/).
 
 | id           | Year | Game                                          | Approx. size |
 | ------------ | ---- | --------------------------------------------- | ------------ |
@@ -212,7 +216,12 @@ offline e instantáneo**. Tus partidas guardadas se conservan en el navegador.
 > no abrir el navegador automáticamente. El puerto libre se elige solo, así que
 > puedes tener varios juegos a la vez.
 
-### Juegos disponibles
+> 🌐 **Sé buen vecino.** Para no saturar los servidores oficiales puedes
+> descargar desde un mirror comunitario en **Cloudflare**: define
+> `PCF_MIRROR=https://…` (o incluye un `data/mirror.json` para que sea el valor
+> por defecto de todos) y limita la velocidad con `PCF_RATE_LIMIT=3M`. Las
+> descargas se cachean en local y se reanudan, así cada juego se baja una sola
+> vez. Mira [mirror/cloudflare/](mirror/cloudflare/).
 
 | id           | Año  | Juego                                         | Tamaño aprox. |
 | ------------ | ---- | --------------------------------------------- | ------------- |

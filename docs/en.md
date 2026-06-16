@@ -97,6 +97,22 @@ internet and keep playing.
 The only step that needs the internet is the initial download from the official
 servers.
 
+### Community mirror (don't saturate the origin)
+
+Downloads are resumable and skipped when already complete, so each game is
+fetched **once** per machine. To protect the official servers at community
+scale you can route the heavy disk images through a CDN:
+
+- `PCF_MIRROR=https://your-mirror` (or `PCF_DISKS_BASE`) — disk images source.
+- `PCF_ORIGIN_BASE=https://…` — runtime + savestate source.
+- `PCF_RATE_LIMIT=3M` — cap download speed to be gentle.
+- `PCF_UA="…"` — override the identifiable User-Agent.
+- `data/mirror.json` — ship a default mirror so **every** user benefits without
+  setting env vars (copy `data/mirror.example.json`).
+
+A ready-to-deploy **Cloudflare** mirror (Worker proxy + edge cache, or R2 with
+zero egress) lives in [`mirror/cloudflare/`](../mirror/cloudflare/).
+
 ## Project layout
 
 ```

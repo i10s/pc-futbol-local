@@ -23,9 +23,20 @@ $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $DataDir = Join-Path $Root "data"
 $PlayDir = Join-Path $Root ".play"
 $DisksDir = Join-Path $PlayDir "disks"
-$Origin  = "https://online.dinamicmultimedia.es"
-$Discos  = "https://discos.dinamicmultimedia.es"
+$Origin  = if ($env:PCF_ORIGIN_BASE) { $env:PCF_ORIGIN_BASE } else { "https://online.dinamicmultimedia.es" }
+$Discos  = if ($env:PCF_DISKS_BASE) { $env:PCF_DISKS_BASE } elseif ($env:PCF_MIRROR) { $env:PCF_MIRROR } else { "https://discos.dinamicmultimedia.es" }
+# Optional maintainer-shipped mirror (data/mirror.json) — env vars still win.
+$mirrorFile = Join-Path $DataDir "mirror.json"
+if (Test-Path $mirrorFile) {
+  $m = Get-Content $mirrorFile -Raw | ConvertFrom-Json
+  if (-not $env:PCF_ORIGIN_BASE -and $m.origin) { $Origin = $m.origin }
+  if (-not $env:PCF_DISKS_BASE -and -not $env:PCF_MIRROR -and $m.disks) { $Discos = $m.disks }
+}
+# Host literally referenced inside the official games.js (rewritten to ./disks).
+$DiscosOfficial = "https://discos.dinamicmultimedia.es"
 $Port    = if ($env:PCF_PORT) { [int]$env:PCF_PORT } else { 8782 }
+$RateLimit = $env:PCF_RATE_LIMIT
+$UserAgent = if ($env:PCF_UA) { $env:PCF_UA } else { "pc-futbol-local (+https://github.com/i10s/pc-futbol-local)" }
 
 $RuntimeFiles = @(
   "index.html", "kiosk.html", "games.js", "libv86.js", "v86.wasm",
@@ -63,10 +74,16 @@ function Download-File($url, $dest, $expected) {
   if ($expected -and (Test-Path $dest) -and ((Get-Item $dest).Length -eq $expected)) { return }
   $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
   if ($curl) {
-    & curl.exe -fL --retry 3 --retry-delay 2 -C - -o $dest $url
+    # One connection, identifiable UA, exponential backoff; resume with -C -.
+    $cargs = @("--location", "--fail", "--user-agent", $UserAgent,
+             "--retry", "5", "--retry-delay", "3", "--retry-connrefused", "--retry-max-time", "120",
+             "-C", "-", "-o", $dest)
+    if ($RateLimit) { $cargs += @("--limit-rate", $RateLimit) }
+    $cargs += $url
+    & curl.exe @cargs
     if ($LASTEXITCODE -ne 0) { Die "Download failed: $url" }
   } else {
-    Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing
+    Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing -UserAgent $UserAgent
   }
 }
 function Download-Small($url, $dest) {
@@ -85,7 +102,7 @@ function Mirror-Runtime {
 
   $gjs = Join-Path $PlayDir "games.js"
   if (Test-Path $gjs) {
-    (Get-Content $gjs -Raw).Replace("$Discos/", "disks/") | Set-Content $gjs -NoNewline
+    (Get-Content $gjs -Raw).Replace("$DiscosOfficial/", "disks/") | Set-Content $gjs -NoNewline
     [regex]::Matches((Get-Content $gjs -Raw), '/assets/[A-Za-z0-9_-]+\.(png|jpg|svg)') |
       ForEach-Object { $_.Value } | Select-Object -Unique | ForEach-Object {
         $local = Join-Path $PlayDir ($_.TrimStart('/'))

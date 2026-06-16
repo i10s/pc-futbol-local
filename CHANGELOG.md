@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Cloudflare community mirror** under `mirror/cloudflare/`: a Worker that
+  reverse-proxies + edge-caches the disk images (adds CORS + HTTP Range), an
+  optional **R2** zero-egress mode, and a `sync-to-r2.sh` populate script.
+- **Origin-friendly downloads**: configurable mirror/CDN (`PCF_MIRROR`,
+  `PCF_DISKS_BASE`, `PCF_ORIGIN_BASE`), optional repo-shipped default via
+  `data/mirror.json`, bandwidth throttling (`PCF_RATE_LIMIT`), exponential
+  retry/backoff and an identifiable User-Agent (`PCF_UA`) — on both `pcf`
+  (bash) and `pcf.ps1` (Windows). `pcf doctor` now shows the active disk source
+  and rate limit.
 - **First-class Linux support**: package-manager-aware install hints
   (`apt`/`dnf`/`pacman`/`zypper`/`apk`/`brew`), broader browser launching
   (`xdg-open`, `gio`, `sensible-browser`, `$BROWSER`) and **WSL** support

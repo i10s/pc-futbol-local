@@ -15,7 +15,7 @@ check: ## Validate data/games.json
 	@python3 scripts/check-games.py
 
 lint: ## Lint shell + check Python syntax
-	@shellcheck -e SC1091 pcf scripts/lib.sh scripts/selftest.sh
+	@shellcheck -e SC1091 pcf scripts/lib.sh scripts/selftest.sh mirror/cloudflare/sync-to-r2.sh
 	@python3 -m py_compile scripts/serve.py scripts/_game.py scripts/check-games.py
 	@echo "lint OK"
 

@@ -1,0 +1,29 @@
+#:schema node_modules/wrangler/config-schema.json
+# PC Fútbol Local — Cloudflare mirror
+# Deploy:  cd mirror/cloudflare && npx wrangler deploy
+name = "pcf-mirror"
+main = "worker.js"
+compatibility_date = "2025-06-01"
+
+# Workers Logs (free, handy to watch cache hit ratio / requests).
+[observability]
+enabled = true
+
+# --- Mode 1: proxy + edge cache (default) ------------------------------------
+# The Worker reverse-proxies this origin and lets Cloudflare cache the disks.
+[vars]
+ORIGIN = "https://discos.dinamicmultimedia.es"
+
+# --- Custom domain -----------------------------------------------------------
+# After adding your zone to Cloudflare, expose the Worker on a clean hostname:
+# routes = [
+#   { pattern = "pcf.example.com", custom_domain = true }
+# ]
+
+# --- Mode 2: serve from R2 (zero egress) -------------------------------------
+# 1) npx wrangler r2 bucket create pcf-disks
+# 2) ./sync-to-r2.sh            # one-time copy from the official origin
+# 3) uncomment the binding below and redeploy
+# [[r2_buckets]]
+# binding = "DISKS"
+# bucket_name = "pcf-disks"

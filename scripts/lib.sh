@@ -9,9 +9,45 @@ SCRIPTS_DIR="$PCF_ROOT/scripts"
 DATA_DIR="$PCF_ROOT/data"
 PLAY_DIR="$PCF_ROOT/.play"          # local docroot (git-ignored)
 DISKS_DIR="$PLAY_DIR/disks"
-ORIGIN="https://online.dinamicmultimedia.es"
-DISCOS="https://discos.dinamicmultimedia.es"
+
+# Origin hosts. Override these to point at a community mirror / CDN and take
+# load off the official servers (be a good neighbour):
+#   PCF_DISKS_BASE  — heavy disk images   (default: discos.dinamicmultimedia.es)
+#   PCF_MIRROR      — shortcut for PCF_DISKS_BASE
+#   PCF_ORIGIN_BASE — runtime + savestate (default: online.dinamicmultimedia.es)
+# A maintainer can also ship data/mirror.json so the whole community downloads
+# from a CDN by default (env vars still win). See mirror/cloudflare/.
+DISCOS_OFFICIAL="https://discos.dinamicmultimedia.es"
+ORIGIN_OFFICIAL="https://online.dinamicmultimedia.es"
+
+# Tiny extractor for a single string key from our own (trusted) mirror.json.
+json_get() {
+  grep -oE "\"$1\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$2" 2>/dev/null \
+    | head -1 | sed -E 's/.*:[[:space:]]*"([^"]*)"/\1/' || true
+}
+
+discos_default="$DISCOS_OFFICIAL"; origin_default="$ORIGIN_OFFICIAL"
+if [ -f "$DATA_DIR/mirror.json" ]; then
+  m="$(json_get disks  "$DATA_DIR/mirror.json")"; [ -n "$m" ] && discos_default="$m"
+  m="$(json_get origin "$DATA_DIR/mirror.json")"; [ -n "$m" ] && origin_default="$m"
+fi
+
+ORIGIN="${PCF_ORIGIN_BASE:-$origin_default}"
+DISCOS="${PCF_DISKS_BASE:-${PCF_MIRROR:-$discos_default}}"
 PORT="${PCF_PORT:-8782}"
+
+# Be gentle with the origin server:
+#   PCF_RATE_LIMIT — cap download speed, e.g. "3M" or "800k" (default: unlimited)
+#   PCF_UA         — override the (identifiable) User-Agent string
+PCF_RATE_LIMIT="${PCF_RATE_LIMIT:-}"
+PCF_UA="${PCF_UA:-pc-futbol-local (+https://github.com/i10s/pc-futbol-local)}"
+
+# Shared, polite curl options: one connection, identifiable UA, exponential
+# backoff on transient errors. No parallel/segmented downloads on purpose.
+CURL_COMMON=( --location --fail
+  --user-agent "$PCF_UA"
+  --retry 5 --retry-delay 3 --retry-connrefused --retry-max-time 120 )
+[ -n "$PCF_RATE_LIMIT" ] && CURL_COMMON+=( --limit-rate "$PCF_RATE_LIMIT" )
 
 # Runtime / front-end files mirrored from the official site (small).
 RUNTIME_FILES=(
@@ -119,14 +155,15 @@ fetch() {
     local have; have=$(wc -c < "$dest" | tr -d ' ')
     if [ "$have" = "$expected" ]; then return 0; fi
   fi
-  curl -fL --retry 3 --retry-delay 2 -C - -o "$dest" "$url" \
+  # Resume (-C -) so an interrupted run never re-downloads from scratch.
+  curl "${CURL_COMMON[@]}" -C - -o "$dest" "$url" \
     || die "Download failed: $url"
 }
 
 fetch_quiet() {
   local url="$1" dest="$2"
   mkdir -p "$(dirname "$dest")"
-  curl -fsSL -o "$dest" "$url" || return 1
+  curl "${CURL_COMMON[@]}" --silent --show-error -o "$dest" "$url" || return 1
 }
 
 # --- Mirror the v86 runtime + front-end (one-time, small) ---------------------
@@ -142,7 +179,7 @@ mirror_runtime() {
 
   # Point the disk URLs at our local /disks instead of the remote host.
   if [ -f "$PLAY_DIR/games.js" ]; then
-    sed -i.bak "s#$DISCOS/#disks/#g" "$PLAY_DIR/games.js" && rm -f "$PLAY_DIR/games.js.bak"
+    sed -i.bak "s#$DISCOS_OFFICIAL/#disks/#g" "$PLAY_DIR/games.js" && rm -f "$PLAY_DIR/games.js.bak"
     # Best-effort: mirror every game logo referenced in games.js.
     grep -oE '/assets/[A-Za-z0-9_-]+\.(png|jpg|svg)' "$PLAY_DIR/games.js" | sort -u | while read -r a; do
       [ -f "$PLAY_DIR$a" ] || fetch_quiet "$ORIGIN$a" "$PLAY_DIR$a" || true
@@ -260,6 +297,10 @@ cmd_doctor() {
     ok "local data dir: $PLAY_DIR (${used:-?} used)"
   else info "no data downloaded yet"; fi
   if [ -f "$PLAY_DIR/.runtime-ok" ]; then ok "emulator runtime installed"; else info "emulator runtime not installed yet"; fi
+  log "${c_bold}Download settings${c_rst}"
+  if [ "$DISCOS" = "$DISCOS_OFFICIAL" ]; then printf "  Disks src : official servers\n"
+  else printf "  Disks src : %s%s%s (mirror)\n" "$c_cya" "$DISCOS" "$c_rst"; fi
+  printf "  Rate limit: %s\n" "${PCF_RATE_LIMIT:-unlimited (tip: PCF_RATE_LIMIT=3M)}"
 }
 
 cmd_menu() {

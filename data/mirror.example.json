@@ -1,0 +1,5 @@
+{
+  "_comment": "Copy this file to data/mirror.json (same folder) after deploying your Cloudflare mirror. When present, the launcher downloads disk images from here by default so the official origin stays healthy. Environment variables (PCF_MIRROR / PCF_DISKS_BASE / PCF_ORIGIN_BASE) still override it.",
+  "disks": "https://pcf.example.com",
+  "origin": "https://online.dinamicmultimedia.es"
+}

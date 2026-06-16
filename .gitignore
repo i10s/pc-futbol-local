@@ -31,3 +31,8 @@ desktop.ini
 # Python caches
 __pycache__/
 *.pyc
+
+# Cloudflare mirror tooling
+mirror/cloudflare/.synced
+node_modules/
+.wrangler/

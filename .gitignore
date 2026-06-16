@@ -1,0 +1,29 @@
+# --- PC Fútbol Local ---
+# Never commit game data or the local runtime mirror.
+# Everything heavy is downloaded on demand by the scripts.
+
+# Local v86 runtime mirror + downloaded disk images / savestates
+.play/
+.cache/
+
+# Raw game media the user may drop here (ISOs, disk images, etc.)
+*.iso
+*.bin
+*.img
+*.cue
+*.zip
+*.7z
+*.rar
+
+# Folders where users typically place their own copies
+games/
+isos/
+5/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+.idea/
+.vscode/

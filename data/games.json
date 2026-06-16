@@ -1,0 +1,141 @@
+{
+  "schema": 1,
+  "origin": "https://online.dinamicmultimedia.es",
+  "disks": "https://discos.dinamicmultimedia.es",
+  "note": "Game data is NOT bundled. It is downloaded on demand from the official free servers above (Dinamic Multimedia / FX Interactive).",
+  "games": [
+    {
+      "id": "pcf4",
+      "name": "PC Fútbol 4.0",
+      "year": 1995,
+      "kind": "dos",
+      "dir": "FUTBOL4",
+      "disks": [
+        { "file": "pcf4_boot.bin", "size": 523837440, "slot": "hda" }
+      ],
+      "state": "pcf4_state.bin"
+    },
+    {
+      "id": "pcf5",
+      "name": "PC Fútbol 5.0",
+      "year": 1996,
+      "kind": "win98",
+      "dir": "FUT5ORO",
+      "disks": [
+        { "file": "win98_pcf5.bin", "size": 523837440, "slot": "hda" },
+        { "file": "win98_pcf5_data.bin", "size": 536870912, "slot": "hdb" },
+        { "file": "PCF5.bin", "size": 447692800, "slot": "cdrom" }
+      ],
+      "state": "pcf5_state.bin"
+    },
+    {
+      "id": "pcf6",
+      "name": "PC Fútbol 6.0",
+      "year": 1997,
+      "kind": "win98",
+      "dir": "FUTBOL6",
+      "disks": [
+        { "file": "win98_pcf6.bin", "size": 523837440, "slot": "hda" },
+        { "file": "win98_pcf6_data.bin", "size": 751619072, "slot": "hdb" },
+        { "file": "PCF6.bin", "size": 671795200, "slot": "cdrom" }
+      ],
+      "state": "pcf6_state.bin"
+    },
+    {
+      "id": "pcf7",
+      "name": "PC Fútbol 7.0",
+      "year": 1998,
+      "kind": "win98",
+      "dir": "FUTBOL7",
+      "disks": [
+        { "file": "win98_pcf7.bin", "size": 523837440, "slot": "hda" },
+        { "file": "win98_pcf7_data.bin", "size": 1073741824, "slot": "hdb" },
+        { "file": "PCF7.bin", "size": 691337216, "slot": "cdrom" }
+      ],
+      "state": "pcf7_state.bin"
+    },
+    {
+      "id": "pcf7mod",
+      "name": "PC Fútbol 7.0 · Update 25/26",
+      "year": 1998,
+      "kind": "win98",
+      "dir": "FUTBOL7",
+      "disks": [
+        { "file": "win98_pcf7mod.bin", "size": 523837440, "slot": "hda" },
+        { "file": "win98_pcf7mod_data.bin", "size": 1073741824, "slot": "hdb" },
+        { "file": "PCF7.bin", "size": 691337216, "slot": "cdrom" }
+      ],
+      "state": "pcf7mod_state.bin"
+    },
+    {
+      "id": "pcfa96",
+      "name": "PC Fútbol 4.0 · Apertura '96 (Argentina)",
+      "year": 1996,
+      "kind": "dos",
+      "dir": "FUTBOL4A",
+      "disks": [
+        { "file": "pcfa96_boot.bin", "size": 523837440, "slot": "hda" }
+      ],
+      "state": "pcfa96_state.bin"
+    },
+    {
+      "id": "pccalcio",
+      "name": "PC Calcio 4.0",
+      "year": 1996,
+      "kind": "dos",
+      "dir": "CALCIO4",
+      "disks": [
+        { "file": "pccalcio_boot.bin", "size": 523837440, "slot": "hda" }
+      ],
+      "state": "pccalcio_state.bin"
+    },
+    {
+      "id": "euro96",
+      "name": "PC Selección Española · Eurocopa '96",
+      "year": 1996,
+      "kind": "dos",
+      "dir": "EURO96",
+      "disks": [
+        { "file": "euro96_boot.bin", "size": 523837440, "slot": "hda" }
+      ],
+      "state": "euro96_state.bin"
+    },
+    {
+      "id": "wc98",
+      "name": "PC Selección Española · Mundial '98",
+      "year": 1998,
+      "kind": "win98",
+      "dir": "PCFSEL98",
+      "disks": [
+        { "file": "win98_wc98.bin", "size": 523837440, "slot": "hda" },
+        { "file": "win98_wc98_data.bin", "size": 268435456, "slot": "hdb" },
+        { "file": "WC98.bin", "size": 569686016, "slot": "cdrom" }
+      ],
+      "state": "wc98_state.bin"
+    },
+    {
+      "id": "pcbasket",
+      "name": "PC Basket 4.0",
+      "year": 1996,
+      "kind": "dos",
+      "dir": "BASKET45",
+      "disks": [
+        { "file": "pcbasket45_boot.bin", "size": 523837440, "slot": "hda" }
+      ],
+      "state": "pcbasket_state.bin"
+    },
+    {
+      "id": "pcbasket65",
+      "name": "PC Basket 6.5",
+      "year": 1999,
+      "kind": "win98",
+      "dir": "PCB65",
+      "disks": [
+        { "file": "win98_pcb65.bin", "size": 523837440, "slot": "hda" },
+        { "file": "win98_pcb65_data.bin", "size": 536870912, "slot": "hdb" },
+        { "file": "PCB65.bin", "size": 691337216, "slot": "cdrom" }
+      ],
+      "state": "pcbasket65_state.bin"
+    }
+  ]
+}

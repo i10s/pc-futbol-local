@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+#
+#   pcf — play the classic PC Fútbol games locally.
+#
+#   Usage:
+#     ./pcf play <id>     download (if needed) and play a game in your browser
+#     ./pcf list          list all available games
+#     ./pcf get <id>      download a game for offline play (no launch)
+#     ./pcf doctor        check your environment
+#     ./pcf clean         remove all downloaded data
+#
+#   Examples:
+#     ./pcf play pcf5
+#     ./pcf list
+#
+set -euo pipefail
+
+# Resolve the directory of this script, following symlinks.
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+export PCF_ROOT="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+
+# shellcheck source=scripts/lib.sh
+source "$PCF_ROOT/scripts/lib.sh"
+
+usage() {
+  cat <<EOF
+${c_bold}PC Fútbol Local${c_rst} — play the classics in your browser.
+
+${c_bold}Usage${c_rst}
+  ./pcf play <id>     Download (if needed) and play a game
+  ./pcf list          List all available games
+  ./pcf get <id>      Download a game for offline play (no launch)
+  ./pcf doctor        Check your environment
+  ./pcf clean         Remove all downloaded data
+
+${c_bold}Examples${c_rst}
+  ./pcf play pcf5
+  ./pcf list
+
+Run ${c_bold}./pcf list${c_rst} to see all game ids.
+EOF
+}
+
+main() {
+  require_tools
+  local cmd="${1:-help}"; shift || true
+  case "$cmd" in
+    play)            cmd_play "$@";;
+    get|download)    cmd_get "$@";;
+    list|ls)         cmd_list;;
+    doctor)          cmd_doctor;;
+    clean)           cmd_clean;;
+    help|-h|--help)  usage;;
+    *)               warn "Unknown command: $cmd"; usage; exit 1;;
+  esac
+}
+main "$@"

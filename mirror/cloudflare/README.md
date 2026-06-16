@@ -26,6 +26,16 @@ aunque casi todo funciona también en el plan gratuito.
 
 Both modes add the **CORS** and **Range** headers the official host lacks.
 
+> ⚠️ **Proxy reliability / Fiabilidad del proxy.** The official origin restricts
+> some regions and data-centre IP ranges. In **proxy mode**, a *cold* cache-miss
+> from a blocked Cloudflare PoP (e.g. some US edges) can return **403** until the
+> object is cached there. End users are unaffected — the launcher automatically
+> falls back to the official origin — but for a globally bulletproof mirror use
+> **R2 mode**, which never touches the origin per request. El origen oficial
+> restringe ciertas regiones/IPs; en modo proxy un *cold-miss* puede dar 403
+> hasta que se cachea. El launcher hace *fallback* automático, así que el usuario
+> no se ve afectado; para fiabilidad global total, usa **R2**.
+
 ---
 
 ## Quick start — Proxy + cache / Inicio rápido

@@ -31,7 +31,18 @@ jobs:
           url="${{ steps.m.outputs.url }}/PCF5.bin"
           hdrs="$(curl -s -o /dev/null -D - -H 'Range: bytes=0-1023' "$url")"
           echo "$hdrs"
-          echo "$hdrs" | grep -qiE '^HTTP/.* 206'
-          echo "$hdrs" | grep -qi 'content-range: bytes 0-1023/447692800'
+          # CORS must always be present (the Worker adds it on every response).
           echo "$hdrs" | grep -qi 'access-control-allow-origin: \*'
-          echo "Mirror is healthy ✓"
+          code="$(printf '%s' "$hdrs" | grep -oiE '^HTTP/[0-9.]+ [0-9]+' | grep -oE '[0-9]+$' | head -1)"
+          case "$code" in
+            206)
+              echo "$hdrs" | grep -qi 'content-range: bytes 0-1023/447692800'
+              echo "Mirror is serving disks ✓" ;;
+            403)
+              # Cold cache-miss in a region the origin restricts (e.g. US data
+              # centres). End users are unaffected: the launcher auto-falls back
+              # to the official origin. R2 mode removes this entirely.
+              echo "::warning::Cold-miss 403 from this runner's region — origin restricts it. Users auto-fallback; consider R2 mode." ;;
+            *)
+              echo "Unexpected status: $code"; exit 1 ;;
+          esac

@@ -1,0 +1,37 @@
+name: Mirror health
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # every 6 hours
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    name: Probe the default mirror
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Resolve mirror URL from data/mirror.json
+        id: m
+        run: |
+          url=$(python3 -c "import json;print(json.load(open('data/mirror.json'))['disks'])")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Mirror: $url"
+
+      - name: Health endpoint
+        run: curl -fsS "${{ steps.m.outputs.url }}/_health" | grep -q '"ok":true'
+
+      - name: Range + CORS on a known disk
+        run: |
+          set -euo pipefail
+          url="${{ steps.m.outputs.url }}/PCF5.bin"
+          hdrs="$(curl -s -o /dev/null -D - -H 'Range: bytes=0-1023' "$url")"
+          echo "$hdrs"
+          echo "$hdrs" | grep -qiE '^HTTP/.* 206'
+          echo "$hdrs" | grep -qi 'content-range: bytes 0-1023/447692800'
+          echo "$hdrs" | grep -qi 'access-control-allow-origin: \*'
+          echo "Mirror is healthy ✓"

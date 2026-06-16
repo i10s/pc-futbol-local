@@ -49,3 +49,9 @@ jobs:
             exit 1
           }
           Write-Host "pcf.ps1 parses OK"
+
+      - name: Launcher smoke (list/doctor, no downloads)
+        shell: pwsh
+        run: |
+          .\pcf.ps1 list
+          .\pcf.ps1 doctor

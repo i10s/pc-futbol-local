@@ -8,6 +8,7 @@
 
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue)]()
 [![CI](https://github.com/i10s/pc-futbol-local/actions/workflows/ci.yml/badge.svg)](https://github.com/i10s/pc-futbol-local/actions/workflows/ci.yml)
+[![Mirror health](https://github.com/i10s/pc-futbol-local/actions/workflows/mirror-health.yml/badge.svg)](https://github.com/i10s/pc-futbol-local/actions/workflows/mirror-health.yml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Games](https://img.shields.io/badge/games-11-orange)]()
 [![Made with](https://img.shields.io/badge/emulator-v86-purple)](https://github.com/copy/v86)

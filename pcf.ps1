@@ -34,6 +34,7 @@ if (Test-Path $mirrorFile) {
 }
 # Host literally referenced inside the official games.js (rewritten to ./disks).
 $DiscosOfficial = "https://discos.dinamicmultimedia.es"
+$OriginOfficial = "https://online.dinamicmultimedia.es"
 $Port    = if ($env:PCF_PORT) { [int]$env:PCF_PORT } else { 8782 }
 $RateLimit = $env:PCF_RATE_LIMIT
 $UserAgent = if ($env:PCF_UA) { $env:PCF_UA } else { "pc-futbol-local (+https://github.com/i10s/pc-futbol-local)" }
@@ -68,10 +69,10 @@ function Get-Python {
   return $null
 }
 
-function Download-File($url, $dest, $expected) {
+function Download-Try($url, $dest, $expected) {
   $dir = Split-Path -Parent $dest
   if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
-  if ($expected -and (Test-Path $dest) -and ((Get-Item $dest).Length -eq $expected)) { return }
+  if ($expected -and (Test-Path $dest) -and ((Get-Item $dest).Length -eq $expected)) { return $true }
   $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
   if ($curl) {
     # One connection, identifiable UA, exponential backoff; resume with -C -.
@@ -81,10 +82,22 @@ function Download-File($url, $dest, $expected) {
     if ($RateLimit) { $cargs += @("--limit-rate", $RateLimit) }
     $cargs += $url
     & curl.exe @cargs
-    if ($LASTEXITCODE -ne 0) { Die "Download failed: $url" }
+    return ($LASTEXITCODE -eq 0)
   } else {
-    Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing -UserAgent $UserAgent
+    try { Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing -UserAgent $UserAgent; return $true }
+    catch { return $false }
   }
+}
+
+# Try the configured source first, then fall back to the official origin so a
+# down/blocked mirror never leaves users stuck.
+function Download-Mirrored($path, $dest, $expected, $primary, $official) {
+  if (Download-Try "$primary/$path" $dest $expected) { return }
+  if ($primary -ne $official) {
+    Warn "mirror failed for $path — falling back to the official origin"
+    if (Download-Try "$official/$path" $dest $expected) { return }
+  }
+  Die "Download failed: $path"
 }
 function Download-Small($url, $dest) {
   $dir = Split-Path -Parent $dest
@@ -127,10 +140,10 @@ function Download-Game($g) {
   Write-Host "  Source: official free servers (Dinamic Multimedia / FX Interactive)." -ForegroundColor DarkGray
   foreach ($d in $g.disks) {
     Info "→ $($d.file)"
-    Download-File "$Discos/$($d.file)" (Join-Path $DisksDir $d.file) $d.size
+    Download-Mirrored $d.file (Join-Path $DisksDir $d.file) $d.size $Discos $DiscosOfficial
   }
   Info "→ $($g.state) (savestate)"
-  Download-File "$Origin/$($g.state)" (Join-Path $PlayDir $g.state) $null
+  Download-Mirrored $g.state (Join-Path $PlayDir $g.state) $null $Origin $OriginOfficial
   Ok "$($g.name) is ready to play."
 }
 

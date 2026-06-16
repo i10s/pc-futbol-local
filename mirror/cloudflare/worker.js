@@ -40,6 +40,12 @@ export default {
       return withCORS(new Response("Not found", { status: 404 }));
     }
 
+    // Only serve flat disk-image filenames. This keeps the Worker from being
+    // used as an open proxy/relay for arbitrary paths on the origin host.
+    if (!/^[A-Za-z0-9._-]+\.bin$/.test(path)) {
+      return withCORS(new Response("Forbidden", { status: 403 }));
+    }
+
     return env.DISKS
       ? serveFromR2(env.DISKS, path, request)
       : serveFromOrigin(env, path, request);

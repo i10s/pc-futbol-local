@@ -146,9 +146,9 @@ game_vars() { eval "$("$PY" "$SCRIPTS_DIR/_game.py" "$1")" || die "Unknown game:
 human()     { "$PY" "$SCRIPTS_DIR/_game.py" --human "$1"; }
 
 # --- Download helpers ---------------------------------------------------------
-# Resumable download with progress. Skips when the file already has the
-# expected size (so re-runs are cheap and safe).
-fetch() {
+# Resumable download. Skips when the file already has the expected size (so
+# re-runs are cheap and safe). Returns non-zero on failure instead of aborting.
+fetch_try() {
   local url="$1" dest="$2" expected="${3:-}"
   mkdir -p "$(dirname "$dest")"
   if [ -n "$expected" ] && [ -f "$dest" ]; then
@@ -156,8 +156,19 @@ fetch() {
     if [ "$have" = "$expected" ]; then return 0; fi
   fi
   # Resume (-C -) so an interrupted run never re-downloads from scratch.
-  curl "${CURL_COMMON[@]}" -C - -o "$dest" "$url" \
-    || die "Download failed: $url"
+  curl "${CURL_COMMON[@]}" -C - -o "$dest" "$url"
+}
+
+# Try the configured source first, then fall back to the official origin so a
+# down/blocked mirror never leaves users stuck.
+fetch_mirrored() {
+  local path="$1" dest="$2" expected="${3:-}" primary="$4" official="$5"
+  if fetch_try "$primary/$path" "$dest" "$expected"; then return 0; fi
+  if [ "$primary" != "$official" ]; then
+    warn "mirror failed for $path — falling back to the official origin"
+    fetch_try "$official/$path" "$dest" "$expected" && return 0
+  fi
+  die "Download failed: $path"
 }
 
 fetch_quiet() {
@@ -217,11 +228,11 @@ download_game() {
     # size lookup from the manifest for skip-if-complete behaviour
     local sz; sz=$("$PY" -c "import json,sys;d=json.load(open('$DATA_DIR/games.json'));
 print(next(x['size'] for g in d['games'] if g['id']=='$id' for x in g['disks'] if x['file']=='$d'))")
-    fetch "$DISCOS/$d" "$DISKS_DIR/$d" "$sz"
+    fetch_mirrored "$d" "$DISKS_DIR/$d" "$sz" "$DISCOS" "$DISCOS_OFFICIAL"
   done
 
   info "→ $GSTATE (savestate)"
-  fetch "$ORIGIN/$GSTATE" "$PLAY_DIR/$GSTATE"
+  fetch_mirrored "$GSTATE" "$PLAY_DIR/$GSTATE" "" "$ORIGIN" "$ORIGIN_OFFICIAL"
   ok "$GNAME is ready to play."
 }
 

@@ -12,7 +12,10 @@ PORT="${PCF_TEST_PORT:-8911}"
 
 tmp="$(mktemp -d)"
 pid=""
-cleanup() { [ -n "$pid" ] && kill "$pid" >/dev/null 2>&1 || true; rm -rf "$tmp"; }
+cleanup() {
+  if [ -n "$pid" ]; then kill "$pid" >/dev/null 2>&1 || true; fi
+  rm -rf "$tmp"
+}
 trap cleanup EXIT
 
 # Build a tiny docroot: a 1 MiB blob + an index.

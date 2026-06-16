@@ -190,7 +190,9 @@ print(next(x['size'] for g in d['games'] if g['id']=='$id' for x in g['disks'] i
 
 # --- Serve + open the browser -------------------------------------------------
 SERVER_PID=""
-cleanup() { [ -n "$SERVER_PID" ] && kill "$SERVER_PID" >/dev/null 2>&1 || true; }
+cleanup() {
+  if [ -n "$SERVER_PID" ]; then kill "$SERVER_PID" >/dev/null 2>&1 || true; fi
+}
 
 start_server() {
   trap cleanup EXIT INT TERM

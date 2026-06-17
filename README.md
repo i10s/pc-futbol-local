@@ -78,7 +78,7 @@ cd pc-futbol-local
 > 🍺 **Homebrew (macOS/Linux):** prefer a one-liner?
 > ```bash
 > brew tap i10s/pcf https://github.com/i10s/pc-futbol-local
-> brew install --HEAD pc-futbol-local
+> brew install pc-futbol-local
 > pcf play pcf5
 > ```
 > Games download into `~/.pc-futbol-local` (override with `PCF_PLAY_DIR`).
@@ -297,7 +297,7 @@ cd pc-futbol-local
 > 🍺 **Homebrew (macOS/Linux):** ¿prefieres una sola línea?
 > ```bash
 > brew tap i10s/pcf https://github.com/i10s/pc-futbol-local
-> brew install --HEAD pc-futbol-local
+> brew install pc-futbol-local
 > pcf play pcf5
 > ```
 > Los juegos se descargan en `~/.pc-futbol-local` (cámbialo con `PCF_PLAY_DIR`).

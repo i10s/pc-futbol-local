@@ -1,20 +1,19 @@
 # Homebrew formula for PC Fútbol Local.
 #
-# Install the latest from master:
-#   brew install --HEAD i10s/pc-futbol-local/pc-futbol-local
-# or directly from this file:
-#   brew install --HEAD --formula ./Formula/pc-futbol-local.rb
+# Install the latest stable release:
+#   brew tap i10s/pcf https://github.com/i10s/pc-futbol-local
+#   brew install pc-futbol-local
+# or track master:
+#   brew install --HEAD pc-futbol-local
 #
 # Game data is NOT bundled; it downloads on demand into ~/.pc-futbol-local.
 class PcFutbolLocal < Formula
   desc "Play the classic PC Fútbol games locally in your browser"
   homepage "https://github.com/i10s/pc-futbol-local"
+  url "https://github.com/i10s/pc-futbol-local/archive/refs/tags/v0.1.0.tar.gz"
+  sha256 "2ae6f480d810afb014c53437142ed96231524164f7637987e2fbda842f6ebc2c"
   license "MIT"
   head "https://github.com/i10s/pc-futbol-local.git", branch: "master"
-
-  # When a versioned release is cut, fill these in so `brew audit` passes:
-  #   url "https://github.com/i10s/pc-futbol-local/archive/refs/tags/v0.1.0.tar.gz"
-  #   sha256 "…"
 
   depends_on "python@3.12"
 

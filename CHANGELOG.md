@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **`pcf verify`**: checks downloaded files against the manifest (byte size
+  always, SHA-256 when recorded), with `--record` to print checksums a
+  maintainer can paste into `data/games.json`. Optional `sha256` / `state_sha256`
+  fields are now validated by CI. Mirrored on `pcf.ps1`.
+- **`pcf doctor --json`**: machine-readable environment/offline-readiness output
+  (bash + PowerShell).
+- **Mirror pre-warm** (`scripts/prewarm.sh`, `make prewarm`): sends a tiny
+  ranged GET for every disk so the edge caches it, avoiding cold-miss 403s for
+  the first user in a region.
+- **Hardened server & agent**: `serve.py` now survives macOS `ENOBUFS` (retries
+  with backoff) and benign client disconnects; the agent maker enforces
+  file/byte caps and refuses to edit CI workflows or its own driver; new
+  `serve.py` concurrency/disconnect self-tests and agent parser unit tests run
+  in CI.
 - **Code-agent loop** (loop engineering) under `.github/agent/`: community
   issues are auto-triaged, and behind a maintainer-only `agent:go` label a
   maker/checker pair drafts a **draft PR** for human review. Powered by

@@ -93,10 +93,11 @@ instant**. Your in-game saved games are kept in your browser.
 | `pcf play <id>`      | Download if needed, then play in your browser        |
 | `pcf list`           | List every game and its id (● = already downloaded)  |
 | `pcf get <id>`       | Pre-download a game for offline play (no launch)     |
+| `pcf verify [id]`    | Check downloaded files against the manifest (size + checksum) |
 | `pcf menu`           | Open the game menu in your browser                   |
 | `pcf update`         | Refresh the local emulator runtime                   |
 | `pcf install-desktop`| **(Linux)** add an app launcher to your menu         |
-| `pcf doctor`         | Check your environment                               |
+| `pcf doctor`         | Check your environment (`--json` for machine output) |
 | `pcf clean`          | Remove all downloaded data                           |
 
 > 💡 Tip: set `PCF_PORT` to change the base port, or `PCF_NO_OPEN=1` to skip
@@ -213,6 +214,22 @@ flowchart LR
   human merges. Deployment waits for approval in a protected environment.
 - Setup and operation: [.github/agent/README.md](.github/agent/README.md).
 
+### For the rights holder
+
+If you are **FX Interactive / Dinamic Multimedia** (or represent them):
+
+- This launcher **bundles no game data**. It downloads the original, free disk
+  images on demand from your own public servers and runs them locally in the
+  browser — it does not re-host, repackage, or modify your binaries.
+- The optional community mirror is a **cache only** (reverse proxy + edge cache,
+  or a self-hosted R2 copy). It stores nothing permanently, never increases your
+  load beyond ~one fetch per region, and can be pointed back at your origin or
+  switched off instantly.
+- Want a change, attribution tweak, or a takedown? Open an issue or contact the
+  maintainer (see [SECURITY.md](SECURITY.md)) and we will act promptly.
+
+See [DISCLAIMER.md](DISCLAIMER.md) for the full statement.
+
 ### Troubleshooting
 
 - **Port already in use** → `PCF_PORT=9000 ./pcf play pcf5`
@@ -287,10 +304,11 @@ offline e instantáneo**. Tus partidas guardadas se conservan en el navegador.
 | `pcf play <id>`      | Descarga si hace falta y juega en el navegador           |
 | `pcf list`           | Lista los juegos y sus id (● = ya descargado)            |
 | `pcf get <id>`       | Descarga un juego para jugar offline (sin abrirlo)       |
+| `pcf verify [id]`    | Comprueba lo descargado contra el manifiesto (tamaño + checksum) |
 | `pcf menu`           | Abre el menú de juegos en el navegador                   |
 | `pcf update`         | Actualiza el runtime del emulador                        |
 | `pcf install-desktop`| **(Linux)** añade un acceso directo a tu menú de apps    |
-| `pcf doctor`         | Comprueba tu entorno                                     |
+| `pcf doctor`         | Comprueba tu entorno (`--json` para salida de máquina)   |
 | `pcf clean`          | Borra todo lo descargado                                 |
 
 > 💡 Truco: usa `PCF_PORT` para cambiar el puerto base, o `PCF_NO_OPEN=1` para
@@ -410,6 +428,24 @@ flowchart LR
   aparte), la CI debe pasar y un humano fusiona. El despliegue espera aprobación
   en un entorno protegido.
 - Configuración y uso: [.github/agent/README.md](.github/agent/README.md).
+
+### Para los titulares de derechos
+
+Si eres **FX Interactive / Dinamic Multimedia** (o les representas):
+
+- Este lanzador **no incluye datos de los juegos**. Descarga las imágenes
+  originales y gratuitas bajo demanda desde vuestros propios servidores públicos
+  y las ejecuta en local en el navegador — no re-aloja, reempaqueta ni modifica
+  vuestros binarios.
+- El mirror comunitario opcional es **solo caché** (proxy inverso + caché de
+  borde, o una copia propia en R2). No almacena nada de forma permanente, nunca
+  aumenta vuestra carga más allá de ~una descarga por región, y se puede
+  redirigir a vuestro origen o apagar al instante.
+- ¿Queréis un cambio, ajuste de atribución o una retirada? Abre una issue o
+  contacta con el responsable (ver [SECURITY.md](SECURITY.md)) y actuaremos sin
+  demora.
+
+Lee [DISCLAIMER.md](DISCLAIMER.md) para la declaración completa.
 
 ### Problemas comunes
 

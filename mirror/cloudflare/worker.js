@@ -14,9 +14,30 @@
  *
  * Both modes add the CORS + Range headers the official host lacks, so the
  * launcher (and even direct in-browser streaming) works from any origin.
+ *
+ * Storage model: NOTHING is stored permanently in proxy mode — only
+ * Cloudflare's edge cache holds copies, and it manages/evicts them. Two content
+ * classes get two cache policies so everything stays in sync with the origin
+ * while the origin is barely touched:
+ *
+ *   • Disk images (*.bin)  → IMMUTABLE. Cached ~1 year. The bytes never change
+ *                            (named by content), so the origin is pulled at most
+ *                            once per object per PoP, forever.
+ *   • Kiosk runtime        → REVALIDATED. Cached at the edge for a short window;
+ *     (html/js/wasm/...)      after it expires Cloudflare refreshes from origin,
+ *                            so upstream updates propagate automatically. Total
+ *                            origin load: a few KB per PoP per window.
  */
 
 const YEAR = 60 * 60 * 24 * 365;
+const KIOSK_TTL = 60 * 60 * 6; // 6 h edge cache for the (small) front-end
+
+// A bare disk-image filename, e.g. "PCF5.bin". No slashes → not a kiosk asset.
+const DISK_RE = /^[A-Za-z0-9._-]+\.bin$/;
+// The known, safe front-end paths. Keeps the Worker from being an open relay.
+// (The /papi backend is intentionally NOT proxied — the launcher stubs it
+// locally so the kiosk runs fully offline.)
+const KIOSK_RE = /^(index\.html|kiosk\.html|games\.js|libv86\.js|v86\.wasm|favicon\.ico)$|^(bios|assets)\/[A-Za-z0-9][A-Za-z0-9._/-]*$/;
 
 export default {
   async fetch(request, env, ctx) {
@@ -40,24 +61,31 @@ export default {
       return withCORS(new Response("Not found", { status: 404 }));
     }
 
-    // Only serve flat disk-image filenames. This keeps the Worker from being
-    // used as an open proxy/relay for arbitrary paths on the origin host.
-    if (!/^[A-Za-z0-9._-]+\.bin$/.test(path)) {
-      return withCORS(new Response("Forbidden", { status: 403 }));
+    // 1) Disk images — immutable, served from R2 if bound, else proxied.
+    if (DISK_RE.test(path)) {
+      const origin = env.ORIGIN || "https://discos.dinamicmultimedia.es";
+      return env.DISKS
+        ? serveFromR2(env.DISKS, path, request)
+        : serveProxied(origin, path, request, { ttl: YEAR, immutable: true, tag: "disk" });
     }
 
-    return env.DISKS
-      ? serveFromR2(env.DISKS, path, request)
-      : serveFromOrigin(env, path, request);
+    // 2) Kiosk runtime — allow-listed, revalidated so it tracks the origin.
+    if (KIOSK_RE.test(path)) {
+      const origin = env.KIOSK_ORIGIN || "https://online.dinamicmultimedia.es";
+      return serveProxied(origin, path, request, { ttl: KIOSK_TTL, immutable: false, tag: "kiosk" });
+    }
+
+    // Anything else: refuse, so we never relay arbitrary origin paths.
+    return withCORS(new Response("Forbidden", { status: 403 }));
   },
 };
 
 /* --------------------------------------------------------------------- */
-/* Mode 1: reverse-proxy the official origin, cached at the edge.         */
+/* Proxy + cache: reverse-proxy an official origin, cached at the edge.   */
+/* `opts.immutable` picks the cache policy (disk vs. kiosk).              */
 /* --------------------------------------------------------------------- */
-async function serveFromOrigin(env, path, request) {
-  const origin = (env.ORIGIN || "https://discos.dinamicmultimedia.es").replace(/\/+$/, "");
-  const target = `${origin}/${path}`;
+async function serveProxied(origin, path, request, opts) {
+  const target = `${origin.replace(/\/+$/, "")}/${path}`;
 
   // Forward only the Range header so Cloudflare can return 206 from cache.
   const headers = new Headers();
@@ -67,16 +95,21 @@ async function serveFromOrigin(env, path, request) {
   const resp = await fetch(target, {
     method: request.method,
     headers,
-    // cacheEverything makes Cloudflare cache the (large, immutable) disk image
-    // regardless of the origin's Cache-Control; range requests are served from
-    // that cached object without re-hitting the origin.
-    cf: { cacheEverything: true, cacheTtl: YEAR },
+    // cacheEverything lets Cloudflare cache regardless of the origin's headers.
+    cf: { cacheEverything: true, cacheTtl: opts.ttl },
   });
 
   const out = new Response(resp.body, resp);
   out.headers.set("Accept-Ranges", "bytes");
-  out.headers.set("Cache-Control", `public, max-age=${YEAR}, immutable`);
-  out.headers.set("X-PCF-Mirror", "proxy");
+  out.headers.set("X-PCF-Mirror", opts.tag);
+  if (opts.immutable) {
+    // Disk images never change → cache hard, forever.
+    out.headers.set("Cache-Control", `public, max-age=${YEAR}, immutable`);
+  } else {
+    // Front-end may change upstream → short cache + background revalidation so
+    // clients and edges pick up new builds without hammering the origin.
+    out.headers.set("Cache-Control", `public, max-age=${opts.ttl}, stale-while-revalidate=86400`);
+  }
   return withCORS(out);
 }
 

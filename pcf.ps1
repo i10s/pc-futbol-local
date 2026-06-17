@@ -104,6 +104,12 @@ function Download-Small($url, $dest) {
   if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
   try { Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing } catch { Warn "could not fetch $url" }
 }
+# Fetch a small runtime/front-end file from the cached mirror, falling back to
+# the official host. Keeps the origin hit ~once per PoP instead of per user.
+function Download-SmallMirrored($path, $dest) {
+  if (Download-Try "$Discos/$path" $dest $null) { return }
+  Download-Small "$OriginOfficial/$path" $dest
+}
 
 function Mirror-Runtime {
   if (Test-Path (Join-Path $PlayDir ".runtime-ok")) { return }
@@ -111,7 +117,7 @@ function Mirror-Runtime {
   foreach ($d in @($PlayDir, $DisksDir, (Join-Path $PlayDir "bios"), (Join-Path $PlayDir "assets/fonts"), (Join-Path $PlayDir "papi"))) {
     if (-not (Test-Path $d)) { New-Item -ItemType Directory -Force -Path $d | Out-Null }
   }
-  foreach ($f in $RuntimeFiles) { Download-Small "$Origin/$f" (Join-Path $PlayDir $f) }
+  foreach ($f in $RuntimeFiles) { Download-SmallMirrored $f (Join-Path $PlayDir $f) }
 
   $gjs = Join-Path $PlayDir "games.js"
   if (Test-Path $gjs) {
@@ -119,7 +125,7 @@ function Mirror-Runtime {
     [regex]::Matches((Get-Content $gjs -Raw), '/assets/[A-Za-z0-9_-]+\.(png|jpg|svg)') |
       ForEach-Object { $_.Value } | Select-Object -Unique | ForEach-Object {
         $local = Join-Path $PlayDir ($_.TrimStart('/'))
-        if (-not (Test-Path $local)) { Download-Small "$Origin$_" $local }
+        if (-not (Test-Path $local)) { Download-SmallMirrored $_.TrimStart('/') $local }
       }
   }
   '{"maintenance":false}' | Set-Content (Join-Path $PlayDir "papi/config.json") -NoNewline
@@ -264,6 +270,17 @@ function Doctor {
   $py = Get-Python
   if ($py) { Ok "python found ($py)" } else { Warn "python not found (optional, recommended)" }
   if (Test-Path $PlayDir) { Ok "local data dir: $PlayDir" } else { Info "no data downloaded yet" }
+  Write-Host "Download settings" -ForegroundColor White
+  if ($Discos -eq $DiscosOfficial) { "  Disks src : official servers" | Write-Host }
+  else { "  Disks src : $Discos (mirror)" | Write-Host }
+  Write-Host "Offline readiness" -ForegroundColor White
+  if (Test-Path (Join-Path $PlayDir ".runtime-ok")) {
+    $n = (Get-Games | Where-Object { Game-Present $_ }).Count
+    if ($n -gt 0) {
+      Ok "$n game(s) fully local — server, kiosk, ISOs & savestate all on disk"
+      "  You can unplug the network and play." | Write-Host
+    } else { Info "runtime ready; download one game to play fully offline" }
+  } else { Info "first download fetches the runtime once; after that everything runs locally" }
 }
 
 function Usage {

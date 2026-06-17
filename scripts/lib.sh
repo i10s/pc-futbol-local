@@ -185,7 +185,11 @@ mirror_runtime() {
 
   local f
   for f in "${RUNTIME_FILES[@]}"; do
-    fetch_quiet "$ORIGIN/$f" "$PLAY_DIR/$f" || warn "could not fetch $f (continuing)"
+    # Prefer the cached mirror so the origin is hit ~once per PoP, not per user;
+    # fall back to the official host if the mirror can't serve it.
+    if ! fetch_quiet "$DISKS/$f" "$PLAY_DIR/$f"; then
+      fetch_quiet "$ORIGIN_OFFICIAL/$f" "$PLAY_DIR/$f" || warn "could not fetch $f (continuing)"
+    fi
   done
 
   # Point the disk URLs at our local /disks instead of the remote host.
@@ -193,7 +197,7 @@ mirror_runtime() {
     sed -i.bak "s#$DISCOS_OFFICIAL/#disks/#g" "$PLAY_DIR/games.js" && rm -f "$PLAY_DIR/games.js.bak"
     # Best-effort: mirror every game logo referenced in games.js.
     grep -oE '/assets/[A-Za-z0-9_-]+\.(png|jpg|svg)' "$PLAY_DIR/games.js" | sort -u | while read -r a; do
-      [ -f "$PLAY_DIR$a" ] || fetch_quiet "$ORIGIN$a" "$PLAY_DIR$a" || true
+      [ -f "$PLAY_DIR$a" ] || fetch_quiet "$DISKS$a" "$PLAY_DIR$a" || fetch_quiet "$ORIGIN_OFFICIAL$a" "$PLAY_DIR$a" || true
     done
   fi
 
@@ -312,6 +316,20 @@ cmd_doctor() {
   if [ "$DISCOS" = "$DISCOS_OFFICIAL" ]; then printf "  Disks src : official servers\n"
   else printf "  Disks src : %s%s%s (mirror)\n" "$c_cya" "$DISCOS" "$c_rst"; fi
   printf "  Rate limit: %s\n" "${PCF_RATE_LIMIT:-unlimited (tip: PCF_RATE_LIMIT=3M)}"
+  log "${c_bold}Offline readiness${c_rst}"
+  if [ -f "$PLAY_DIR/.runtime-ok" ]; then
+    local n=0 id
+    while IFS=$'\t' read -r id _; do game_present "$id" >/dev/null 2>&1 && n=$((n+1)); done \
+      < <("$PY" "$SCRIPTS_DIR/_game.py" --list 2>/dev/null)
+    if [ "$n" -gt 0 ]; then
+      ok "$n game(s) fully local — server, kiosk, ISOs & savestate all on disk"
+      printf "  %sYou can unplug the network and play.%s\n" "$c_dim" "$c_rst"
+    else
+      info "runtime ready; download one game to play fully offline"
+    fi
+  else
+    info "first download fetches the runtime once; after that everything runs locally"
+  fi
 }
 
 cmd_menu() {

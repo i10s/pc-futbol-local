@@ -64,6 +64,32 @@ the origin.
 
 ---
 
+## What gets cached, and how it stays in sync / Qué se cachea y cómo se sincroniza
+
+The mirror **stores nothing permanently** in proxy mode — it only holds copies
+in Cloudflare's edge cache, which Cloudflare fills and evicts for you. The
+Worker serves two content classes, each routed to its origin with its own cache
+policy so the whole experience (kiosk **and** disks) tracks the upstream while
+the origin is barely touched:
+
+| Content | Origin (`wrangler.toml`) | Edge policy | Origin load | Sync |
+|---------|--------------------------|-------------|-------------|------|
+| **Disk images** `*.bin` | `ORIGIN` (discos) | `immutable`, ~1 year | One pull per object per PoP, ever | N/A — bytes never change |
+| **Kiosk / runtime** html·js·wasm·bios·assets | `KIOSK_ORIGIN` (online) | 6 h + `stale-while-revalidate` | A few KB per PoP per window | Auto — new builds picked up within hours |
+
+So you get a **single cache, zero storage** mirror that keeps itself in sync:
+disks are pinned forever (they’re content-named, immutable), and the small
+front-end is revalidated so upstream fixes propagate without re-hosting
+anything. El mirror **no almacena nada**: sólo la caché del edge. Los discos se
+fijan para siempre (inmutables) y el kiosko se revalida cada pocas horas, así
+todo queda sincronizado con el origen sin re-alojar nada.
+
+> The launcher fetches the kiosk **through the mirror too** (with a fallback to
+> the official host), so the origin sees ~one runtime pull per PoP instead of
+> one per user.
+
+---
+
 ## Custom domain / Dominio propio
 
 A clean hostname caches better and looks trustworthy:

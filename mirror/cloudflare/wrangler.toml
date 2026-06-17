@@ -10,9 +10,13 @@ compatibility_date = "2025-06-01"
 enabled = true
 
 # --- Mode 1: proxy + edge cache (default) ------------------------------------
-# The Worker reverse-proxies this origin and lets Cloudflare cache the disks.
+# The Worker reverse-proxies these origins and lets Cloudflare cache them.
+#   ORIGIN        → disk images (*.bin), cached immutably (~1 year).
+#   KIOSK_ORIGIN  → front-end / runtime, cached briefly + revalidated so it
+#                   tracks upstream updates with almost no origin load.
 [vars]
 ORIGIN = "https://discos.dinamicmultimedia.es"
+KIOSK_ORIGIN = "https://online.dinamicmultimedia.es"
 
 # --- Custom domain -----------------------------------------------------------
 # After adding your zone to Cloudflare, expose the Worker on a clean hostname:

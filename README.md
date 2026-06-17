@@ -138,6 +138,78 @@ flowchart LR
 
 More detail in the [full English guide](docs/en.md).
 
+### Fully offline after the first download
+
+Once a game is downloaded, **everything runs on your machine** — unplug the
+network and keep playing. The only time anything touches the internet is the
+one-time download.
+
+| Piece | Where it lives | What it is |
+| ----- | -------------- | ---------- |
+| **Web server** | `scripts/serve.py` on `localhost` | A tiny stdlib server with HTTP **Range** (206) support — no dependencies |
+| **Emulator** | `.play/libv86.js`, `.play/v86.wasm` | v86 runs the PC entirely in your browser (WASM) |
+| **Disk images (ISOs)** | `.play/disks/*.bin` | The actual game discs, streamed locally by Range |
+| **Savestate** | `.play/<game>.bin` | The game's initial boot state |
+| **Front-end (kiosk)** | `.play/games.js`, `index.html`… | Disk URLs are rewritten to your **local** `/disks` |
+| **Backend API** | `.play/papi/*.json` | **Stubbed locally** so the kiosk boots with zero network |
+
+> Your in-game saved games are stored by your browser for the `localhost` site —
+> keep the same browser and don't clear site data.
+
+### The community mirror (Cloudflare)
+
+To protect the official servers, this repo ships with a live **Cloudflare**
+mirror enabled by default (`pcf-mirror.ifuentes.workers.dev`). It **stores
+nothing permanently** — it only uses Cloudflare's edge cache, with two content
+classes tuned so everything stays in sync while the origin is barely touched:
+
+| Content | Edge policy | Origin load |
+| ------- | ----------- | ----------- |
+| **Disk images** (`*.bin`) | Immutable, cached ~1 year | One pull per file per region, ever |
+| **Kiosk / runtime** | Short cache + revalidation | A few KB per region per window |
+
+```mermaid
+flowchart LR
+    U["./pcf get pcf5"] --> M{"Cloudflare<br/>edge cache"}
+    M -- "hit" --> U
+    M -- "miss (once)" --> O["Official origin"]
+    O --> M
+    M -. "if mirror errors" .-> O2["Official origin<br/>(automatic fallback)"]
+    O2 --> U
+```
+
+- **Resilient:** if the mirror ever fails or is blocked in your region, the
+  launcher **automatically falls back** to the official origin — you're never
+  stuck.
+- **Adjustable:** set `PCF_RATE_LIMIT=3M` to cap speed, or
+  `PCF_MIRROR=https://discos.dinamicmultimedia.es` to bypass the mirror.
+- **Run your own:** deploy the Worker in minutes (proxy + cache, or zero-egress
+  R2). Full guide in [mirror/cloudflare/](mirror/cloudflare/).
+
+### Automated agent loop (loop engineering)
+
+Community issues are handled by a small **[loop-engineering](https://addyosmani.com/blog/loop-engineering/)**
+system: you design the loop once and it triages issues, drafts fixes and
+proposes deploys — while a human stays in control.
+
+```mermaid
+flowchart LR
+    I["Issue opened"] --> T["Triage agent<br/>classify · label · reply"]
+    T -- "maintainer adds<br/>agent:go" --> MK["Maker<br/>drafts change"]
+    MK --> CK["Checker<br/>adversarial review"]
+    CK --> PR["Draft PR"]
+    PR --> CI["CI validates"]
+    CI --> H["Human merges"]
+    H --> D["Deploy<br/>(approval-gated)"]
+```
+
+- **Model:** `@cf/moonshotai/kimi-k2.7-code` on Cloudflare Workers AI.
+- **Safe by design:** the agent only opens **draft** PRs and **proposes**
+  deploys. Implementation is gated by a maintainer-only `agent:go` label, the
+  maker never grades its own work (a separate checker does), CI must pass, and a
+  human merges. Deployment waits for approval in a protected environment.
+- Setup and operation: [.github/agent/README.md](.github/agent/README.md).
+
 ### Troubleshooting
 
 - **Port already in use** → `PCF_PORT=9000 ./pcf play pcf5`
@@ -262,6 +334,80 @@ flowchart LR
 
 Más detalle en la [guía completa en español](docs/es.md).
 
+### Totalmente offline tras la primera descarga
+
+Una vez descargado un juego, **todo se ejecuta en tu máquina** — puedes
+desconectar la red y seguir jugando. Lo único que toca internet es la descarga
+inicial.
+
+| Pieza | Dónde vive | Qué es |
+| ----- | ---------- | ------ |
+| **Servidor web** | `scripts/serve.py` en `localhost` | Servidor mínimo de la stdlib con soporte HTTP **Range** (206), sin dependencias |
+| **Emulador** | `.play/libv86.js`, `.play/v86.wasm` | v86 ejecuta el PC entero en tu navegador (WASM) |
+| **Imágenes de disco (ISOs)** | `.play/disks/*.bin` | Los discos del juego, servidos en local por Range |
+| **Savestate** | `.play/<juego>.bin` | El estado inicial de arranque del juego |
+| **Front-end (kiosko)** | `.play/games.js`, `index.html`… | Las URLs de disco se reescriben a tu `/disks` **local** |
+| **API de backend** | `.play/papi/*.json` | **Sustituida en local** para que el kiosko arranque sin red |
+
+> Tus partidas guardadas las almacena el navegador para el sitio `localhost` —
+> usa el mismo navegador y no borres los datos del sitio.
+
+### El mirror comunitario (Cloudflare)
+
+Para proteger los servidores oficiales, este repo trae activado por defecto un
+mirror en **Cloudflare** (`pcf-mirror.ifuentes.workers.dev`). **No almacena nada
+de forma permanente** — solo usa la caché del edge de Cloudflare, con dos clases
+de contenido ajustadas para que todo quede sincronizado tocando el origen lo
+mínimo:
+
+| Contenido | Política del edge | Carga en origen |
+| --------- | ----------------- | --------------- |
+| **Imágenes de disco** (`*.bin`) | Inmutable, caché ~1 año | Un fetch por fichero y región, para siempre |
+| **Kiosko / runtime** | Caché corta + revalidación | Unos KB por región y ventana |
+
+```mermaid
+flowchart LR
+    U["./pcf get pcf5"] --> M{"Caché del edge<br/>de Cloudflare"}
+    M -- "acierto" --> U
+    M -- "fallo (una vez)" --> O["Origen oficial"]
+    O --> M
+    M -. "si el mirror falla" .-> O2["Origen oficial<br/>(fallback automático)"]
+    O2 --> U
+```
+
+- **Resiliente:** si el mirror falla o está bloqueado en tu región, el lanzador
+  **baja automáticamente del origen oficial** — nunca te quedas tirado.
+- **Ajustable:** usa `PCF_RATE_LIMIT=3M` para limitar la velocidad, o
+  `PCF_MIRROR=https://discos.dinamicmultimedia.es` para saltarte el mirror.
+- **Monta el tuyo:** despliega el Worker en minutos (proxy + caché, o R2 sin
+  coste de salida). Guía completa en [mirror/cloudflare/](mirror/cloudflare/).
+
+### Bucle de agente automático (loop engineering)
+
+Las incidencias de la comunidad las gestiona un pequeño sistema de
+**[loop engineering](https://addyosmani.com/blog/loop-engineering/)**: diseñas el
+bucle una vez y él clasifica incidencias, redacta arreglos y propone despliegues
+— mientras un humano mantiene el control.
+
+```mermaid
+flowchart LR
+    I["Issue abierta"] --> T["Agente de triaje<br/>clasifica · etiqueta · responde"]
+    T -- "el responsable añade<br/>agent:go" --> MK["Maker<br/>redacta el cambio"]
+    MK --> CK["Checker<br/>revisión adversarial"]
+    CK --> PR["PR en borrador"]
+    PR --> CI["La CI valida"]
+    CI --> H["Un humano fusiona"]
+    H --> D["Deploy<br/>(con aprobación)"]
+```
+
+- **Modelo:** `@cf/moonshotai/kimi-k2.7-code` en Cloudflare Workers AI.
+- **Seguro por diseño:** el agente solo abre PRs en **borrador** y **propone**
+  despliegues. La implementación está gateada por la label `agent:go` (solo
+  responsables), el maker nunca corrige su propio trabajo (lo hace un checker
+  aparte), la CI debe pasar y un humano fusiona. El despliegue espera aprobación
+  en un entorno protegido.
+- Configuración y uso: [.github/agent/README.md](.github/agent/README.md).
+
 ### Problemas comunes
 
 - **Puerto ocupado** → `PCF_PORT=9000 ./pcf play pcf5`
@@ -280,7 +426,8 @@ Contributions are very welcome! · ¡Las contribuciones son muy bienvenidas!
 
 - 📋 Read the [Contributing guide](CONTRIBUTING.md) (EN/ES) and the
   [Code of Conduct](CODE_OF_CONDUCT.md).
-- 🐛 Found a bug or want a game added? Open an [issue](https://github.com/i10s/pc-futbol-local/issues/new/choose).
+- 🐛 Found a bug or want a game added? Open an [issue](https://github.com/i10s/pc-futbol-local/issues/new/choose) —
+  it gets **auto-triaged** by the agent loop, and a maintainer takes it from there.
 - 🔒 Security reports: see [SECURITY.md](SECURITY.md).
 - 📝 Changes are tracked in the [CHANGELOG](CHANGELOG.md).
 

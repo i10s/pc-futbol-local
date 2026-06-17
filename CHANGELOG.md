@@ -6,15 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Code-agent loop** (loop engineering) under `.github/agent/`: community
+  issues are auto-triaged, and behind a maintainer-only `agent:go` label a
+  maker/checker pair drafts a **draft PR** for human review. Powered by
+  `@cf/moonshotai/kimi-k2.7-code` on Cloudflare Workers AI. New workflows:
+  `agent-triage.yml`, `agent-implement.yml`, and `agent-deploy.yml`
+  (approval-gated `production` environment). The loop only proposes — humans
+  merge and ship.
 - **Cloudflare community mirror** under `mirror/cloudflare/`: a Worker that
   reverse-proxies + edge-caches the disk images (adds CORS + HTTP Range), an
   optional **R2** zero-egress mode, and a `sync-to-r2.sh` populate script.
+- **Cache-only mirror, kept in sync**: the Worker now serves both the disk
+  images (immutable, ~1 year) and the kiosk runtime (short cache +
+  revalidation) from the edge, storing nothing permanently. The launchers fetch
+  the kiosk through the mirror too (with automatic fallback to the official
+  origin), so the origin is hit ~once per region instead of per user.
+  `mirror-health.yml` probes the live mirror every 6 h.
 - **Origin-friendly downloads**: configurable mirror/CDN (`PCF_MIRROR`,
   `PCF_DISKS_BASE`, `PCF_ORIGIN_BASE`), optional repo-shipped default via
   `data/mirror.json`, bandwidth throttling (`PCF_RATE_LIMIT`), exponential
   retry/backoff and an identifiable User-Agent (`PCF_UA`) — on both `pcf`
-  (bash) and `pcf.ps1` (Windows). `pcf doctor` now shows the active disk source
-  and rate limit.
+  (bash) and `pcf.ps1` (Windows). `pcf doctor` now shows the active disk source,
+  rate limit and an **offline-readiness** summary.
 - **First-class Linux support**: package-manager-aware install hints
   (`apt`/`dnf`/`pacman`/`zypper`/`apk`/`brew`), broader browser launching
   (`xdg-open`, `gio`, `sensible-browser`, `$BROWSER`) and **WSL** support

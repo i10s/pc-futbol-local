@@ -57,7 +57,8 @@ jobs:
       - name: Ruby syntax
         run: ruby -c Formula/pc-futbol-local.rb
       - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        # Pinned to a commit SHA (supply-chain safety); Dependabot bumps it.
+        uses: Homebrew/actions/setup-homebrew@d4a9d3894e99dfb50a41c089a3dfcbd6009152a1 # master
       - name: brew style
         run: brew style Formula/pc-futbol-local.rb
 

@@ -1,0 +1,71 @@
+name: Agent · triage
+
+# Loop heartbeat (discovery + triage). Runs on every community issue, classifies
+# it with the code agent, labels it, and posts a friendly bilingual reply. It
+# only comments and labels — it never writes code here. A maintainer turns a
+# triaged issue into work by adding the `agent:go` label (see agent-implement).
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: agent-triage-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  triage:
+    name: Classify and reply
+    runs-on: ubuntu-latest
+    # Skip issues opened by the agent/bot itself.
+    if: ${{ github.event.issue.user.type != 'Bot' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run triage sub-agent
+        id: triage
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_AI_TOKEN: ${{ secrets.CF_AI_TOKEN }}
+          AGENT_MODEL: ${{ vars.AGENT_MODEL }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: node .github/agent/run-agent.mjs triage > triage.json
+
+      - name: Apply labels, reply, and gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          python3 - "$ISSUE_NUMBER" <<'PY'
+          import json, subprocess, sys
+          n = sys.argv[1]
+          t = json.load(open("triage.json"))
+          allowed = {"bug","game-request","feature","question","docs",
+                     "good first issue","needs-info","wontfix"}
+          labels = [l for l in t.get("labels", []) if l in allowed]
+          # A low-risk, confident, automatable issue becomes a candidate that a
+          # maintainer can promote with the `agent:go` label.
+          if t.get("automatable") and t.get("risk") == "low" and float(t.get("confidence",0)) >= 0.7:
+              labels.append("agent:candidate")
+          for lab in dict.fromkeys(labels):
+              subprocess.run(["gh","issue","edit",n,"--add-label",lab],
+                             check=False)
+          reply = t.get("reply") or t.get("summary") or "Thanks for the report!"
+          foot = ("\n\n---\n*Triaged automatically by the code agent. A maintainer "
+                  "will review. · Clasificado automáticamente; un responsable lo "
+                  "revisará.*")
+          subprocess.run(["gh","issue","comment",n,"--body",reply+foot], check=True)
+          print("triage:", json.dumps({k:t.get(k) for k in
+                ("type","automatable","risk","confidence")}))
+          PY

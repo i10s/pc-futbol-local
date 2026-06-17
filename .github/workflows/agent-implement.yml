@@ -1,0 +1,153 @@
+name: Agent · implement
+
+# The maker/checker half of the loop. A maintainer gates work by adding the
+# `agent:go` label to a triaged issue (only users with write access can label,
+# so this is the human approval point). The maker sub-agent drafts the change,
+# the checker sub-agent reviews the diff adversarially, the loop records what it
+# did in the state file, and opens a DRAFT pull request. It NEVER merges and
+# NEVER deploys — the existing CI validates the PR and a human ships it.
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: agent-implement-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  implement:
+    name: Draft a fix and open a PR
+    if: ${{ github.event.label.name == 'agent:go' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Configure git
+        run: |
+          git config user.name  "pcf-agent[bot]"
+          git config user.email "pcf-agent@users.noreply.github.com"
+
+      - name: Create work branch
+        id: branch
+        env:
+          N: ${{ github.event.issue.number }}
+        run: |
+          b="agent/issue-${N}"
+          git switch -c "$b"
+          echo "name=$b" >> "$GITHUB_OUTPUT"
+
+      - name: Maker — draft the change
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_AI_TOKEN: ${{ secrets.CF_AI_TOKEN }}
+          AGENT_MODEL: ${{ vars.AGENT_MODEL }}
+          MAX_TOKENS: "8192"
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: node .github/agent/run-agent.mjs implement
+
+      - name: Capture diff
+        id: diff
+        run: |
+          git add -A
+          git diff --cached > agent.diff
+          if [ ! -s agent.diff ]; then
+            echo "The agent produced no changes." >&2
+            exit 1
+          fi
+          echo "Changed files:"; git diff --cached --name-only
+
+      - name: Checker — adversarial review
+        id: review
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_AI_TOKEN: ${{ secrets.CF_AI_TOKEN }}
+          AGENT_MODEL: ${{ vars.AGENT_MODEL }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          DIFF="$(cat agent.diff)" node .github/agent/run-agent.mjs review > review.json
+          cat review.json
+
+      - name: Record state and assemble PR body
+        id: state
+        env:
+          N: ${{ github.event.issue.number }}
+          TITLE: ${{ github.event.issue.title }}
+        run: |
+          python3 - "$N" "$TITLE" <<'PY'
+          import json, datetime, sys, os, re
+          n, title = sys.argv[1], sys.argv[2]
+          rev = json.load(open("review.json"))
+          approved = bool(rev.get("approved"))
+          files = open(".github/agent/last-implement.txt").read().strip().splitlines() \
+                  if os.path.exists(".github/agent/last-implement.txt") else []
+          stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+          entry = (f"### #{n} — {title}\n"
+                   f"- {stamp} · review: {'approved ✅' if approved else 'needs human ⚠️'}\n"
+                   f"- files: {', '.join(files) or '(none)'}\n")
+          # Insert newest-first between the AGENT-LOG markers.
+          p = ".github/agent/state.md"
+          s = open(p).read()
+          start = "<!-- AGENT-LOG:START -->"
+          s = s.replace("_(empty — the loop will append entries here as issues come in.)_\n", "")
+          s = s.replace(start, start + "\n\n" + entry)
+          open(p, "w").write(s)
+
+          def block(title, items):
+              items = items or []
+              if not items: return ""
+              return f"**{title}**\n" + "\n".join(f"- {i}" for i in items) + "\n\n"
+          body = (f"Closes #{n}\n\n"
+                  f"Drafted by the code agent loop (maker → checker). **Draft on "
+                  f"purpose** — CI validates this PR and a human merges it.\n\n"
+                  f"{rev.get('verdict','')}\n\n"
+                  f"{block('⛔ Blocking', rev.get('blocking'))}"
+                  f"{block('🔒 Security', rev.get('security'))}"
+                  f"{block('💡 Nits', rev.get('nits'))}"
+                  f"**Checker verdict:** {'approved ✅' if approved else 'needs human review ⚠️'}\n")
+          open("pr-body.md","w").write(body)
+          # Expose a label for the PR.
+          with open(os.environ["GITHUB_OUTPUT"],"a") as f:
+              f.write(f"approved={'true' if approved else 'false'}\n")
+          PY
+
+      - name: Commit and push
+        env:
+          N: ${{ github.event.issue.number }}
+          TITLE: ${{ github.event.issue.title }}
+        run: |
+          git add -A
+          git commit -m "agent: draft fix for #${N} — ${TITLE}"
+          git push -u origin "${{ steps.branch.outputs.name }}"
+
+      - name: Open draft PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          N: ${{ github.event.issue.number }}
+          TITLE: ${{ github.event.issue.title }}
+          APPROVED: ${{ steps.state.outputs.approved }}
+        run: |
+          set -euo pipefail
+          label="agent:needs-human"
+          [ "$APPROVED" = "true" ] && label="agent:reviewed"
+          url=$(gh pr create --draft \
+            --base master \
+            --head "${{ steps.branch.outputs.name }}" \
+            --title "agent: ${TITLE} (#${N})" \
+            --body-file pr-body.md)
+          gh pr edit "$url" --add-label "$label" || true
+          gh issue comment "$N" --body "🤖 Drafted a PR: $url — review and merge when CI is green. · He preparado un PR; revísalo y fusiónalo cuando la CI esté verde."

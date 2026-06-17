@@ -1,0 +1,49 @@
+name: Agent · deploy
+
+# The final step of the loop: ship the mirror. Runs only after a change to the
+# Worker lands on master (i.e. a human merged the PR). The `production`
+# environment is protected with required reviewers, so deployment still needs an
+# explicit human approval — the loop proposes, a person disposes.
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - "mirror/cloudflare/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy the Cloudflare mirror
+    runs-on: ubuntu-latest
+    environment: production   # add required reviewers in repo settings
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Validate Worker syntax
+        run: node --check mirror/cloudflare/worker.js
+
+      - name: Deploy with Wrangler
+        working-directory: mirror/cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+        run: npx --yes wrangler@latest deploy
+
+      - name: Smoke-test the live mirror
+        run: |
+          set -euo pipefail
+          url=$(python3 -c "import json;print(json.load(open('data/mirror.json'))['disks'])")
+          curl -fsS "$url/_health" | grep -q '"ok":true'
+          echo "Deployed and healthy ✓ — $url"

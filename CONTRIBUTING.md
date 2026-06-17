@@ -49,6 +49,12 @@ Add an entry to [`data/games.json`](data/games.json) — see the format in
 2. Make your change + run `make all`.
 3. Open a PR describing **what** and **why**. CI must be green.
 
+### Automated agent loop
+
+Issues are auto-triaged by a code-agent loop. For small, low-risk issues a
+maintainer can hand the work to the agent, which drafts a PR for human review —
+nothing merges or deploys without a person. See [`.github/agent/README.md`](.github/agent/README.md).
+
 ## 🇪🇸 Español
 
 ### Formas de contribuir
@@ -95,6 +101,13 @@ Añade una entrada en [`data/games.json`](data/games.json) — formato en
 1. Haz un fork y crea una rama.
 2. Haz tu cambio + ejecuta `make all`.
 3. Abre un PR explicando **qué** y **por qué**. El CI debe estar en verde.
+
+### Bucle de agente automático
+
+Las incidencias se clasifican con un bucle de agente de código. En casos pequeños
+y de bajo riesgo, un responsable puede delegar el trabajo al agente, que prepara
+un PR en borrador para revisión humana — nada se fusiona ni se despliega sin una
+persona. Ver [`.github/agent/README.md`](.github/agent/README.md).
 
 ---
 

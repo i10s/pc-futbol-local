@@ -55,6 +55,19 @@ Issues are auto-triaged by a code-agent loop. For small, low-risk issues a
 maintainer can hand the work to the agent, which drafts a PR for human review —
 nothing merges or deploys without a person. See [`.github/agent/README.md`](.github/agent/README.md).
 
+### Releases
+
+Releases are automated. Bump `CHANGELOG.md` (rename `[Unreleased]` to the new
+version), then push a tag:
+
+```bash
+git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z
+```
+
+The `Release` workflow publishes the GitHub Release (notes pulled from the
+matching CHANGELOG section) and pins the Homebrew formula's `url` + `sha256` to
+the tag, committing the bump to `master`.
+
 ## 🇪🇸 Español
 
 ### Formas de contribuir
@@ -108,6 +121,19 @@ Las incidencias se clasifican con un bucle de agente de código. En casos peque�
 y de bajo riesgo, un responsable puede delegar el trabajo al agente, que prepara
 un PR en borrador para revisión humana — nada se fusiona ni se despliega sin una
 persona. Ver [`.github/agent/README.md`](.github/agent/README.md).
+
+### Versiones (releases)
+
+Las versiones están automatizadas. Actualiza `CHANGELOG.md` (renombra
+`[Unreleased]` a la nueva versión) y empuja un tag:
+
+```bash
+git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z
+```
+
+El workflow `Release` publica la Release de GitHub (con las notas de la sección
+correspondiente del CHANGELOG) y fija `url` + `sha256` de la fórmula de Homebrew
+al tag, haciendo commit del cambio en `master`.
 
 ---
 

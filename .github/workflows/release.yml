@@ -1,0 +1,125 @@
+name: Release
+
+# Push a tag like v0.2.0 and this workflow will:
+#   1. publish a GitHub Release with notes pulled from CHANGELOG.md
+#   2. pin the Homebrew formula's url + sha256 to that tag (commit to master)
+# Cutting a release becomes a one-liner:  git tag -a vX.Y.Z -m … && git push --tags
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to (re)release, e.g. v0.1.0"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve tag
+        id: tag
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          case "$TAG" in
+            v*) ;;
+            *) echo "::error::Tag '$TAG' must start with 'v'"; exit 1 ;;
+          esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      # Always work from master so the formula bump lands on the default branch.
+      - uses: actions/checkout@v5
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Compute tarball sha256
+        id: sha
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          URL="https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${TAG}.tar.gz"
+          echo "Fetching $URL"
+          for i in 1 2 3 4 5; do
+            if curl -fsSL "$URL" -o /tmp/src.tgz; then break; fi
+            echo "retry $i…"; sleep 5
+          done
+          SHA="$(sha256sum /tmp/src.tgz | awk '{print $1}')"
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Pin formula url + sha256
+        id: formula
+        env:
+          URL: ${{ steps.sha.outputs.url }}
+          SHA: ${{ steps.sha.outputs.sha256 }}
+        run: |
+          f=Formula/pc-futbol-local.rb
+          python3 - "$f" "$URL" "$SHA" <<'PY'
+          import re, sys
+          path, url, sha = sys.argv[1], sys.argv[2], sys.argv[3]
+          s = open(path, encoding="utf-8").read()
+          s = re.sub(r'^(\s*)url\s+".*"', rf'\1url "{url}"', s, count=1, flags=re.M)
+          s = re.sub(r'^(\s*)sha256\s+".*"', rf'\1sha256 "{sha}"', s, count=1, flags=re.M)
+          open(path, "w", encoding="utf-8").write(s)
+          PY
+          ruby -c "$f"
+          if git diff --quiet -- "$f"; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit formula bump
+        if: steps.formula.outputs.changed == 'true'
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/pc-futbol-local.rb
+          git commit -m "formula: pin ${TAG} url+sha256 [skip ci]"
+          git push origin HEAD:master
+
+      - name: Extract release notes from CHANGELOG
+        id: notes
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { grab=1; next }
+            grab && /^## \[/ { exit }
+            grab { print }
+          ' CHANGELOG.md > /tmp/notes.md
+          if [ ! -s /tmp/notes.md ]; then
+            echo "No CHANGELOG section for $VERSION; using generic notes." >&2
+            printf 'Release %s. See CHANGELOG.md.\n' "$VERSION" > /tmp/notes.md
+          fi
+          {
+            echo "Install with Homebrew:"
+            echo
+            echo '```bash'
+            echo "brew tap i10s/pcf https://github.com/${GITHUB_REPOSITORY}"
+            echo "brew install pc-futbol-local"
+            echo '```'
+          } >> /tmp/notes.md
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TAG" --notes-file /tmp/notes.md
+          else
+            gh release create "$TAG" --title "$TAG" --notes-file /tmp/notes.md
+          fi

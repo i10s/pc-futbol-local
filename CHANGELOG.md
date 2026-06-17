@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Automated releases** (`.github/workflows/release.yml`): pushing a `vX.Y.Z`
+  tag publishes the GitHub Release (notes from `CHANGELOG.md`) and pins the
+  Homebrew formula's `url` + `sha256` to the tag automatically.
+- **Formula guard in CI**: `ruby -c` + `brew style` on `Formula/` so the
+  Homebrew formula can't drift.
+
 ## [0.1.0] - 2026-06-17
 
 First tagged release — gives the Homebrew formula a stable `url` + `sha256`

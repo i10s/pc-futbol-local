@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: ShellCheck
-        run: shellcheck -e SC1091 pcf scripts/lib.sh scripts/selftest.sh mirror/cloudflare/sync-to-r2.sh
+        run: shellcheck -e SC1091 pcf scripts/lib.sh scripts/selftest.sh scripts/prewarm.sh mirror/cloudflare/sync-to-r2.sh
 
       - name: Python syntax
         run: python3 -m py_compile scripts/serve.py scripts/_game.py scripts/check-games.py

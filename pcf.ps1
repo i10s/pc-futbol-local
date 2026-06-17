@@ -15,7 +15,8 @@
 [CmdletBinding()]
 param(
   [Parameter(Position = 0)] [string] $Command = "help",
-  [Parameter(Position = 1)] [string] $Game = ""
+  [Parameter(Position = 1)] [string] $Game = "",
+  [Parameter(Position = 2)] [string] $Option = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -137,6 +138,43 @@ function Mirror-Runtime {
 function Game-Present($g) {
   foreach ($d in $g.disks) { if (-not (Test-Path (Join-Path $DisksDir $d.file))) { return $false } }
   return (Test-Path (Join-Path $PlayDir $g.state))
+}
+
+function Sha256-File($path) { (Get-FileHash $path -Algorithm SHA256).Hash.ToLower() }
+
+# Verify downloaded files against the manifest: size always, SHA-256 when the
+# manifest records one. -Record prints checksums of present files instead.
+function Verify($Target, [switch]$Record) {
+  $games = if ($Target) { @(Find-Game $Target) } else { Get-Games }
+  $fail = 0; $checked = 0
+  foreach ($g in $games) {
+    if (-not $Target -and -not (Game-Present $g)) { continue }
+    Write-Host "$($g.name) ($($g.id))" -ForegroundColor White
+    $items = @()
+    foreach ($d in $g.disks) {
+      $items += [pscustomobject]@{ path = (Join-Path $DisksDir $d.file); file = $d.file; size = $d.size; sha = $d.sha256 }
+    }
+    $items += [pscustomobject]@{ path = (Join-Path $PlayDir $g.state); file = $g.state; size = $null; sha = $g.state_sha256 }
+    foreach ($it in $items) {
+      if (-not (Test-Path $it.path -PathType Leaf)) { Write-Host "  X missing: $($it.file)" -ForegroundColor Red; $fail = 1; continue }
+      if ($Record) { Write-Host ("  {0}  {1}" -f (Sha256-File $it.path), $it.file); $checked++; continue }
+      if ($it.size) {
+        $have = (Get-Item $it.path).Length
+        if ($have -ne $it.size) { Write-Host "  X size mismatch: $($it.file) ($have, expected $($it.size))" -ForegroundColor Red; $fail = 1; continue }
+      }
+      if ($it.sha) {
+        if ((Sha256-File $it.path) -ne ([string]$it.sha).ToLower()) { Write-Host "  X checksum FAIL: $($it.file)" -ForegroundColor Red; $fail = 1; continue }
+        Ok "  $($it.file) (size + sha256)"
+      } else {
+        Ok "  $($it.file) (size ok; no checksum recorded)"
+      }
+      $checked++
+    }
+  }
+  if ($Record) { return }
+  if ($checked -eq 0) { Info "nothing downloaded to verify (try: .\pcf.ps1 get <id>)"; return }
+  if ($fail -ne 0) { Die "verification found problems - re-run '.\pcf.ps1 get <id>' to repair" }
+  Ok "all good - $checked file(s) match the manifest"
 }
 
 function Download-Game($g) {
@@ -264,6 +302,27 @@ function Show-List {
 }
 
 function Doctor {
+  param([switch]$Json)
+  if ($Json) {
+    $py = Get-Python
+    $runtime = [bool](Test-Path (Join-Path $PlayDir ".runtime-ok"))
+    $localN = if ($runtime) { (Get-Games | Where-Object { Game-Present $_ }).Count } else { 0 }
+    [pscustomobject]@{
+      os                = "windows"
+      arch              = $env:PROCESSOR_ARCHITECTURE
+      distro            = $null
+      curl              = [bool](Get-Command curl.exe -ErrorAction SilentlyContinue)
+      python            = $py
+      runtime_installed = $runtime
+      disks_source      = $Discos
+      using_mirror      = ($Discos -ne $DiscosOfficial)
+      rate_limit        = $RateLimit
+      games_total       = (Get-Games).Count
+      games_local       = [int]$localN
+      play_dir          = $PlayDir
+    } | ConvertTo-Json
+    return
+  }
   Write-Host "Environment check" -ForegroundColor White
   "  OS        : Windows $([Environment]::OSVersion.Version)" | Write-Host
   if (Get-Command curl.exe -ErrorAction SilentlyContinue) { Ok "curl.exe found" } else { Warn "curl.exe missing (Windows 10+ includes it)" }
@@ -291,9 +350,10 @@ Usage
   .\pcf.ps1 play <id>     Download (if needed) and play a game
   .\pcf.ps1 list          List all available games
   .\pcf.ps1 get <id>      Download a game for offline play (no launch)
+  .\pcf.ps1 verify [id]   Check downloaded files against the manifest
   .\pcf.ps1 menu          Open the game menu in your browser
   .\pcf.ps1 update        Refresh the local emulator runtime
-  .\pcf.ps1 doctor        Check your environment
+  .\pcf.ps1 doctor        Check your environment (add --json for machine output)
   .\pcf.ps1 clean         Remove all downloaded data
 
 Examples
@@ -308,9 +368,19 @@ switch ($Command.ToLower()) {
   "download" { if (-not $Game) { Die "usage: .\pcf.ps1 download <id>" }; Download-Game (Find-Game $Game) }
   "list"   { Show-List }
   "ls"     { Show-List }
+  "verify" {
+    $rec = ($Game -eq '--record') -or ($Option -eq '--record')
+    $tgt = @($Game, $Option) | Where-Object { $_ -and ($_ -notmatch '^--') } | Select-Object -First 1
+    Verify $tgt -Record:$rec
+  }
+  "check"  {
+    $rec = ($Game -eq '--record') -or ($Option -eq '--record')
+    $tgt = @($Game, $Option) | Where-Object { $_ -and ($_ -notmatch '^--') } | Select-Object -First 1
+    Verify $tgt -Record:$rec
+  }
   "menu"   { Menu }
   "update" { Update }
-  "doctor" { Doctor }
+  "doctor" { Doctor -Json:([bool]($Game -eq '--json')) }
   "clean"  {
     $a = Read-Host "Remove ALL downloaded games and the local emulator ($PlayDir)? [y/N]"
     if ($a -match '^[yY]') { Remove-Item -Recurse -Force $PlayDir; Ok "Removed." } else { Write-Host "Cancelled." }

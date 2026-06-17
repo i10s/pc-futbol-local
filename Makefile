@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
 
-.PHONY: help list check lint test all
+.PHONY: help list check lint test verify prewarm all
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -15,11 +15,17 @@ check: ## Validate data/games.json
 	@python3 scripts/check-games.py
 
 lint: ## Lint shell + check Python syntax
-	@shellcheck -e SC1091 pcf scripts/lib.sh scripts/selftest.sh mirror/cloudflare/sync-to-r2.sh
+	@shellcheck -e SC1091 pcf scripts/lib.sh scripts/selftest.sh scripts/prewarm.sh mirror/cloudflare/sync-to-r2.sh
 	@python3 -m py_compile scripts/serve.py scripts/_game.py scripts/check-games.py
 	@echo "lint OK"
 
-test: check ## Run the server self-test (Range + security)
+test: check ## Run the server self-test (Range + security + concurrency)
 	@bash scripts/selftest.sh
+
+verify: ## Verify downloaded games against the manifest
+	@./pcf verify
+
+prewarm: ## Warm the mirror edge cache (set MIRROR=https://…)
+	@MIRROR=$${MIRROR:-$$PCF_MIRROR} bash scripts/prewarm.sh
 
 all: lint check test ## Run everything CI runs (except PowerShell)

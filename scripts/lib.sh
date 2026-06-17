@@ -177,6 +177,13 @@ fetch_quiet() {
   curl "${CURL_COMMON[@]}" --silent --show-error -o "$dest" "$url" || return 1
 }
 
+# Print the SHA-256 of a file (portable across Linux/macOS); empty if no tool.
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'
+  elif command -v shasum  >/dev/null 2>&1; then shasum -a 256 "$1" | awk '{print $1}'
+  else return 1; fi
+}
+
 # --- Mirror the v86 runtime + front-end (one-time, small) ---------------------
 mirror_runtime() {
   if [ -f "$PLAY_DIR/.runtime-ok" ]; then return 0; fi
@@ -297,7 +304,47 @@ cmd_play() {
   serve_and_play "$id"
 }
 
+# Emit the environment/offline status as JSON (machine-readable diagnostics).
+doctor_json() {
+  local os arch distro pyver runtime total n curl_ok mirror
+  os="$(os_kind)"; arch="$(uname -m)"
+  distro=""; { [ "$os" = linux ] || [ "$os" = wsl ]; } && distro="$(linux_distro)"
+  pyver=""; [ -n "${PY:-}" ] && pyver="$("$PY" -c 'import sys;print(".".join(map(str,sys.version_info[:3])))' 2>/dev/null || true)"
+  runtime=false; [ -f "$PLAY_DIR/.runtime-ok" ] && runtime=true
+  total="$("$PY" "$SCRIPTS_DIR/_game.py" --ids | wc -w | tr -d ' ')"
+  n=0
+  if [ -f "$PLAY_DIR/.runtime-ok" ]; then
+    local id
+    while IFS=$'\t' read -r id _; do game_present "$id" >/dev/null 2>&1 && n=$((n+1)); done \
+      < <("$PY" "$SCRIPTS_DIR/_game.py" --list 2>/dev/null)
+  fi
+  curl_ok=false; command -v curl >/dev/null 2>&1 && curl_ok=true
+  mirror=false; [ "$DISCOS" != "$DISCOS_OFFICIAL" ] && mirror=true
+  OSV="$os" ARCHV="$arch" DISTRO="$distro" PYVER="$pyver" RUNTIME="$runtime" \
+  CURL_OK="$curl_ok" DISKS_SRC="$DISCOS" MIRROR="$mirror" RATE="${PCF_RATE_LIMIT:-}" \
+  TOTAL="$total" LOCAL_N="$n" PLAYDIR="$PLAY_DIR" \
+  "$PY" - <<'PY'
+import json, os
+def b(x): return x == "true"
+print(json.dumps({
+    "os": os.environ["OSV"],
+    "arch": os.environ["ARCHV"],
+    "distro": os.environ.get("DISTRO") or None,
+    "curl": b(os.environ["CURL_OK"]),
+    "python": os.environ.get("PYVER") or None,
+    "runtime_installed": b(os.environ["RUNTIME"]),
+    "disks_source": os.environ["DISKS_SRC"],
+    "using_mirror": b(os.environ["MIRROR"]),
+    "rate_limit": os.environ.get("RATE") or None,
+    "games_total": int(os.environ["TOTAL"]),
+    "games_local": int(os.environ["LOCAL_N"]),
+    "play_dir": os.environ["PLAYDIR"],
+}, indent=2))
+PY
+}
+
 cmd_doctor() {
+  if [ "${1:-}" = "--json" ]; then doctor_json; return; fi
   local os; os="$(os_kind)"
   log "${c_bold}Environment check${c_rst}"
   printf "  OS        : %s (%s %s)\n" "$os" "$(uname -s)" "$(uname -m)"
@@ -330,6 +377,74 @@ cmd_doctor() {
   else
     info "first download fetches the runtime once; after that everything runs locally"
   fi
+}
+
+# Verify downloaded files against the manifest: size always, SHA-256 when the
+# manifest records one. With --record, print the SHA-256 of present files so a
+# maintainer can paste them back into data/games.json.
+#   pcf verify [id]            verify one game (or every downloaded game)
+#   pcf verify --record [id]   print checksums of present files
+cmd_verify() {
+  local record="" target=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --record) record=1;;
+      -*)       die "usage: pcf verify [--record] [id]";;
+      *)        target="$1";;
+    esac
+    shift
+  done
+
+  local ids
+  if [ -n "$target" ]; then ids="$target"; else ids="$("$PY" "$SCRIPTS_DIR/_game.py" --ids)"; fi
+
+  local fail=0 checked=0 id
+  for id in $ids; do
+    game_vars "$id"
+    # Skip games that aren't downloaded unless the user asked for one by name.
+    if [ -z "$target" ] && ! game_present "$id" >/dev/null 2>&1; then continue; fi
+    log "${c_bold}$GNAME${c_rst} (${c_dim}$id${c_rst})"
+    local kind file size sha path
+    while IFS=$'\t' read -r kind file size sha; do
+      case "$kind" in
+        disk)  path="$DISKS_DIR/$file";;
+        state) path="$PLAY_DIR/$file";;
+        *)     continue;;
+      esac
+      if [ ! -f "$path" ]; then
+        printf "  %s✗%s missing: %s\n" "$c_red" "$c_rst" "$file"; fail=1; continue
+      fi
+      if [ -n "$record" ]; then
+        printf "  %s  %s\n" "$(sha256_file "$path" 2>/dev/null || echo '?')" "$file"
+        checked=$((checked+1)); continue
+      fi
+      if [ -n "$size" ]; then
+        local have; have=$(wc -c < "$path" | tr -d ' ')
+        if [ "$have" != "$size" ]; then
+          printf "  %s✗%s size mismatch: %s (%s, expected %s)\n" "$c_red" "$c_rst" "$file" "$have" "$size"
+          fail=1; continue
+        fi
+      fi
+      if [ -n "$sha" ]; then
+        local got; got="$(sha256_file "$path" 2>/dev/null || echo '')"
+        if [ -z "$got" ]; then
+          warn "  no sha256 tool available; checksum skipped for $file"
+        elif [ "$got" != "$sha" ]; then
+          printf "  %s✗%s checksum FAIL: %s\n" "$c_red" "$c_rst" "$file"; fail=1; continue
+        else
+          ok "  $file (size + sha256)"
+        fi
+      else
+        ok "  $file (size ok; no checksum recorded)"
+      fi
+      checked=$((checked+1))
+    done < <("$PY" "$SCRIPTS_DIR/_game.py" --checkspec "$id")
+  done
+
+  if [ -n "$record" ]; then return 0; fi
+  if [ "$checked" -eq 0 ]; then info "nothing downloaded to verify (try: pcf get <id>)"; return 0; fi
+  if [ "$fail" -ne 0 ]; then die "verification found problems — re-run 'pcf get <id>' to repair"; fi
+  ok "all good — $checked file(s) match the manifest"
 }
 
 cmd_menu() {

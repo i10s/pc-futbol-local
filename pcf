@@ -36,9 +36,10 @@ ${c_bold}Usage${c_rst}
   ./pcf play <id>      Download (if needed) and play a game
   ./pcf list          List all available games
   ./pcf get <id>      Download a game for offline play (no launch)
+  ./pcf verify [id]   Check downloaded files against the manifest
   ./pcf menu          Open the game menu in your browser
   ./pcf update        Refresh the local emulator runtime
-  ./pcf doctor        Check your environment
+  ./pcf doctor        Check your environment (add --json for machine output)
   ./pcf install-desktop   (Linux) add an app launcher to your menu
   ./pcf clean         Remove all downloaded data
 
@@ -58,6 +59,7 @@ main() {
     play)            cmd_play "$@";;
     get|download)    cmd_get "$@";;
     list|ls)         cmd_list;;
+    verify|check)    cmd_verify "$@";;
     menu)            cmd_menu;;
     update)          cmd_update;;
     install-desktop) cmd_install_desktop;;

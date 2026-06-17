@@ -14,6 +14,11 @@ REQUIRED = ("id", "name", "year", "kind", "dir", "disks", "state")
 SLOTS = {"hda", "hdb", "cdrom"}
 
 
+def is_sha256(value):
+    return (isinstance(value, str) and len(value) == 64
+            and all(c in "0123456789abcdef" for c in value.lower()))
+
+
 def main():
     with open(PATH, encoding="utf-8") as f:
         data = json.load(f)
@@ -37,6 +42,10 @@ def main():
                 errors.append(f"{gid}: bad size for {disk.get('file')}")
             if disk.get("slot") not in SLOTS:
                 errors.append(f"{gid}: slot must be one of {sorted(SLOTS)}")
+            if "sha256" in disk and not is_sha256(disk["sha256"]):
+                errors.append(f"{gid}: bad sha256 for {disk.get('file')}")
+        if "state_sha256" in g and not is_sha256(g["state_sha256"]):
+            errors.append(f"{gid}: bad state_sha256")
 
     if errors:
         print("games.json INVALID:")

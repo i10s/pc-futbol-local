@@ -6,6 +6,7 @@ Modes:
     _game.py --ids             -> space separated ids
     _game.py --total <id>      -> total download bytes for a game
     _game.py --human <bytes>   -> human readable size
+    _game.py --checkspec <id>  -> "kind<TAB>file<TAB>size<TAB>sha256" per file
     _game.py <id>              -> shell-evalable variables for one game
 """
 import json
@@ -62,6 +63,16 @@ def main():
         if not g:
             sys.exit(3)
         print(sum(d["size"] for d in g["disks"]))
+        return
+
+    if args[0] == "--checkspec":
+        g = find(data, args[1])
+        if not g:
+            sys.exit(3)
+        # One line per downloadable file the launcher can verify on disk.
+        for d in g["disks"]:
+            print(f"disk\t{d['file']}\t{d['size']}\t{d.get('sha256', '')}")
+        print(f"state\t{g['state']}\t\t{g.get('state_sha256', '')}")
         return
 
     gid = args[0]

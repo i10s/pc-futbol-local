@@ -52,4 +52,30 @@ code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/index.html
 code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/../../etc/passwd")
 [ "$code" = "404" ] || fail "path traversal should be blocked, got $code"
 
-echo "serve.py self-test PASSED (Range + security OK)"
+# 6) Concurrent Range requests all succeed (threaded server, no buffer crashes).
+pids=""
+for i in $(seq 1 12); do
+  ( curl -s -r 0-65535 "http://127.0.0.1:$PORT/blob.bin" | wc -c | tr -d ' ' > "$tmp/c$i" ) &
+  pids="$pids $!"
+done
+# shellcheck disable=SC2086
+wait $pids
+for i in $(seq 1 12); do
+  [ "$(cat "$tmp/c$i")" = "65536" ] || fail "concurrent range #$i wrong length: $(cat "$tmp/c$i")"
+done
+
+# 7) An abrupt client disconnect (RST mid-stream) must not crash the server.
+"$PY" - "$PORT" <<'PY'
+import socket, struct, sys
+port = int(sys.argv[1])
+s = socket.create_connection(("127.0.0.1", port))
+s.sendall(b"GET /blob.bin HTTP/1.1\r\nHost: x\r\nRange: bytes=0-1048575\r\n\r\n")
+s.recv(64)                                   # read a little, then bail out
+s.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))  # force RST
+s.close()
+PY
+kill -0 "$pid" 2>/dev/null || fail "server died after a client disconnect"
+code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/index.html")
+[ "$code" = "200" ] || fail "server unhealthy after disconnect, got $code"
+
+echo "serve.py self-test PASSED (Range + security + concurrency OK)"

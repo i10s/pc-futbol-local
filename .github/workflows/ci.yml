@@ -33,6 +33,21 @@ jobs:
           chmod +x pcf
           ./pcf list
           ./pcf doctor
+          ./pcf doctor --json | python3 -m json.tool >/dev/null
+          ./pcf verify
+
+  agent:
+    name: Agent driver + parser tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Syntax check
+        run: node --check .github/agent/run-agent.mjs
+      - name: Parser unit tests
+        run: node .github/agent/run-agent.test.mjs
 
   powershell:
     name: PowerShell launcher parses

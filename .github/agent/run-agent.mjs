@@ -33,6 +33,7 @@ import { readFileSync, writeFileSync, existsSync, statSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join, dirname } from "node:path";
 import { mkdirSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
 const ROOT = execSync("git rev-parse --show-toplevel").toString().trim();
 const MODEL = process.env.AGENT_MODEL || "@cf/moonshotai/kimi-k2.7-code";
@@ -108,71 +109,98 @@ async function callModel(system, user) {
 }
 
 /* Extract the first fenced JSON object the model emitted. */
-function extractJson(text) {
+export function extractJson(text) {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const raw = fenced ? fenced[1] : text;
   const start = raw.indexOf("{");
   const end = raw.lastIndexOf("}");
-  if (start === -1 || end === -1) die(`No JSON object in model output:\n${text}`);
+  if (start === -1 || end === -1) throw new Error(`No JSON object in model output:\n${text}`);
   return JSON.parse(raw.slice(start, end + 1));
 }
 
-/* Parse `=== FILE: path ===\n...\n=== END FILE ===` blocks and write them. */
-function applyFileBlocks(text) {
-  const re = /===\s*FILE:\s*(.+?)\s*===\r?\n([\s\S]*?)\r?\n===\s*END FILE\s*===/g;
-  const written = [];
-  let m;
-  while ((m = re.exec(text)) !== null) {
-    const rel = m[1].trim();
-    // Hard guard: stay inside the repo, never touch secrets or local data.
-    if (
-      rel.includes("..") ||
-      rel.startsWith("/") ||
-      rel.startsWith(".play/") ||
-      rel.startsWith(".git/") ||
-      /(^|\/)\.env/i.test(rel) ||
-      rel.includes("\\")
-    ) {
-      die(`Refusing to write disallowed path: ${rel}`);
-    }
-    const abs = join(ROOT, rel);
-    mkdirSync(dirname(abs), { recursive: true });
-    writeFileSync(abs, m[2].endsWith("\n") ? m[2] : m[2] + "\n");
-    written.push(rel);
-  }
-  if (written.length === 0) die("Model returned no FILE blocks.");
-  return written;
+const MAX_FILES = Number(process.env.MAX_FILES || 20);
+const MAX_WRITE_BYTES = Number(process.env.MAX_WRITE_BYTES || 256 * 1024);
+
+/* A maker draft must never touch local data, secrets, CI workflows or the
+ * agent's own driver — those are the guardrails it runs behind. */
+function disallowedPath(rel) {
+  return (
+    rel.includes("..") ||
+    rel.startsWith("/") ||
+    rel.startsWith(".play/") ||
+    rel.startsWith(".git/") ||
+    rel.startsWith(".github/workflows/") ||
+    rel === ".github/agent/run-agent.mjs" ||
+    /(^|\/)\.env/i.test(rel) ||
+    rel.includes("\\")
+  );
 }
 
-const mode = process.argv[2];
-const issue = {
-  number: process.env.ISSUE_NUMBER || "?",
-  title: process.env.ISSUE_TITLE || "",
-  body: process.env.ISSUE_BODY || "",
-};
+/* Parse `=== FILE: path ===\n...\n=== END FILE ===` blocks into {rel, body}.
+ * Pure + bounded: rejects disallowed paths and oversized changes. */
+export function parseFileBlocks(text, { maxFiles = MAX_FILES, maxBytes = MAX_WRITE_BYTES } = {}) {
+  const re = /===\s*FILE:\s*(.+?)\s*===\r?\n([\s\S]*?)\r?\n===\s*END FILE\s*===/g;
+  const blocks = [];
+  let m;
+  let totalBytes = 0;
+  while ((m = re.exec(text)) !== null) {
+    const rel = m[1].trim();
+    if (disallowedPath(rel)) throw new Error(`Refusing to write disallowed path: ${rel}`);
+    const body = m[2].endsWith("\n") ? m[2] : m[2] + "\n";
+    totalBytes += Buffer.byteLength(body, "utf8");
+    blocks.push({ rel, body });
+  }
+  if (blocks.length === 0) throw new Error("Model returned no FILE blocks.");
+  if (blocks.length > maxFiles) throw new Error(`Too many files in one change: ${blocks.length} > ${maxFiles}.`);
+  if (totalBytes > maxBytes) throw new Error(`Change too large: ${totalBytes} > ${maxBytes} bytes.`);
+  return blocks;
+}
 
-if (mode === "triage") {
-  const sys = skill() + "\n\n" + readPrompt("triage");
-  const user = `Issue #${issue.number}\nTitle: ${issue.title}\n\nBody:\n${issue.body}`;
-  const out = await callModel(sys, user);
-  const json = extractJson(out);
-  process.stdout.write(JSON.stringify(json, null, 2));
-} else if (mode === "implement") {
-  const sys = skill() + "\n\n" + readPrompt("implement");
-  const user =
-    `Issue #${issue.number}\nTitle: ${issue.title}\n\nBody:\n${issue.body}\n\n` +
-    `--- CURRENT REPOSITORY (tracked source) ---\n${repoContext()}`;
-  const out = await callModel(sys, user);
-  const files = applyFileBlocks(out);
-  writeFileSync(join(ROOT, ".github/agent/last-implement.txt"), files.join("\n") + "\n");
-  console.error(`agent: wrote ${files.length} file(s):\n  ${files.join("\n  ")}`);
-} else if (mode === "review") {
-  const sys = skill() + "\n\n" + readPrompt("review");
-  const diff = process.env.DIFF || readFileSync(0, "utf8");
-  const user = `Issue #${issue.number}: ${issue.title}\n\n--- DIFF UNDER REVIEW ---\n${diff}`;
-  const out = await callModel(sys, user);
-  const json = extractJson(out);
-  process.stdout.write(JSON.stringify(json, null, 2));
-} else {
-  die("usage: run-agent.mjs <triage|implement|review>");
+/* Apply parsed FILE blocks to the worktree. */
+export function applyFileBlocks(text, opts) {
+  const blocks = parseFileBlocks(text, opts);
+  for (const { rel, body } of blocks) {
+    const abs = join(ROOT, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  }
+  return blocks.map((b) => b.rel);
+}
+
+async function main() {
+  const mode = process.argv[2];
+  const issue = {
+    number: process.env.ISSUE_NUMBER || "?",
+    title: process.env.ISSUE_TITLE || "",
+    body: process.env.ISSUE_BODY || "",
+  };
+
+  if (mode === "triage") {
+    const sys = skill() + "\n\n" + readPrompt("triage");
+    const user = `Issue #${issue.number}\nTitle: ${issue.title}\n\nBody:\n${issue.body}`;
+    const out = await callModel(sys, user);
+    process.stdout.write(JSON.stringify(extractJson(out), null, 2));
+  } else if (mode === "implement") {
+    const sys = skill() + "\n\n" + readPrompt("implement");
+    const user =
+      `Issue #${issue.number}\nTitle: ${issue.title}\n\nBody:\n${issue.body}\n\n` +
+      `--- CURRENT REPOSITORY (tracked source) ---\n${repoContext()}`;
+    const out = await callModel(sys, user);
+    const files = applyFileBlocks(out);
+    writeFileSync(join(ROOT, ".github/agent/last-implement.txt"), files.join("\n") + "\n");
+    console.error(`agent: wrote ${files.length} file(s):\n  ${files.join("\n  ")}`);
+  } else if (mode === "review") {
+    const sys = skill() + "\n\n" + readPrompt("review");
+    const diff = process.env.DIFF || readFileSync(0, "utf8");
+    const user = `Issue #${issue.number}: ${issue.title}\n\n--- DIFF UNDER REVIEW ---\n${diff}`;
+    const out = await callModel(sys, user);
+    process.stdout.write(JSON.stringify(extractJson(out), null, 2));
+  } else {
+    die("usage: run-agent.mjs <triage|implement|review>");
+  }
+}
+
+// Only run the CLI when executed directly (so tests can import the parsers).
+if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
+  main().catch((e) => die(e.message));
 }

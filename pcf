@@ -63,7 +63,7 @@ main() {
     menu)            cmd_menu;;
     update)          cmd_update;;
     install-desktop) cmd_install_desktop;;
-    doctor)          cmd_doctor;;
+    doctor)          cmd_doctor "$@";;
     clean)           cmd_clean;;
     help|-h|--help)  usage;;
     *)               warn "Unknown command: $cmd"; usage; exit 1;;

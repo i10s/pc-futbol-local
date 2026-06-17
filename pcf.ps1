@@ -22,7 +22,7 @@ param(
 $ErrorActionPreference = "Stop"
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $DataDir = Join-Path $Root "data"
-$PlayDir = Join-Path $Root ".play"
+$PlayDir = if ($env:PCF_PLAY_DIR) { $env:PCF_PLAY_DIR } else { Join-Path $Root ".play" }
 $DisksDir = Join-Path $PlayDir "disks"
 $Origin  = if ($env:PCF_ORIGIN_BASE) { $env:PCF_ORIGIN_BASE } else { "https://online.dinamicmultimedia.es" }
 $Discos  = if ($env:PCF_DISKS_BASE) { $env:PCF_DISKS_BASE } elseif ($env:PCF_MIRROR) { $env:PCF_MIRROR } else { "https://discos.dinamicmultimedia.es" }

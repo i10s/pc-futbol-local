@@ -7,7 +7,9 @@ set -euo pipefail
 PCF_ROOT="${PCF_ROOT:?PCF_ROOT must be set by the launcher}"
 SCRIPTS_DIR="$PCF_ROOT/scripts"
 DATA_DIR="$PCF_ROOT/data"
-PLAY_DIR="$PCF_ROOT/.play"          # local docroot (git-ignored)
+# Where games + the emulator live. Override PCF_PLAY_DIR for packaged installs
+# (e.g. Homebrew) so downloads land in the user's home, not inside the Cellar.
+PLAY_DIR="${PCF_PLAY_DIR:-$PCF_ROOT/.play}"   # local docroot (git-ignored)
 DISKS_DIR="$PLAY_DIR/disks"
 
 # Origin hosts. Override these to point at a community mirror / CDN and take

@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PC Fútbol Local — status</title>
+<meta name="description" content="Live status for the PC Fútbol Local community mirror." />
+<style>
+  :root {
+    --bg: #0f1115; --card: #171a21; --fg: #e7e9ee; --dim: #9aa3b2;
+    --ok: #2ecc71; --bad: #e74c3c; --warn: #f1c40f; --line: #262b36; --accent: #6ea8fe;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--fg); padding: 2rem 1rem;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
+  .sub { color: var(--dim); margin: 0 0 1.5rem; }
+  a { color: var(--accent); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .5rem 0; border-bottom: 1px solid var(--line); }
+  .row:last-child { border-bottom: 0; }
+  .name { font-weight: 600; }
+  .detail { color: var(--dim); font-size: .85rem; }
+  .pill { font-size: .8rem; font-weight: 700; padding: .2rem .6rem; border-radius: 999px; white-space: nowrap; }
+  .pill.ok { background: rgba(46,204,113,.15); color: var(--ok); }
+  .pill.bad { background: rgba(231,76,60,.15); color: var(--bad); }
+  .pill.warn { background: rgba(241,196,15,.15); color: var(--warn); }
+  .pill.wait { background: rgba(154,163,178,.15); color: var(--dim); }
+  .badges img { margin: 0 .35rem .35rem 0; vertical-align: middle; }
+  footer { color: var(--dim); font-size: .85rem; margin-top: 1.5rem; }
+  .muted { color: var(--dim); }
+  code { background: #11141b; padding: .1rem .4rem; border-radius: 6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>PC Fútbol Local — mirror status</h1>
+  <p class="sub">Live, client-side checks against the community mirror. Nothing is stored; this page just probes the edge.</p>
+
+  <div class="card badges">
+    <img alt="CI" src="https://github.com/i10s/pc-futbol-local/actions/workflows/ci.yml/badge.svg" />
+    <img alt="Mirror health" src="https://github.com/i10s/pc-futbol-local/actions/workflows/mirror-health.yml/badge.svg" />
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <div class="name">Mirror endpoint</div>
+        <div class="detail" id="endpoint">—</div>
+      </div>
+      <span class="pill wait" id="overall">checking…</span>
+    </div>
+    <div class="row">
+      <div>
+        <div class="name">Health</div>
+        <div class="detail">GET <code>/_health</code> → <code>{ok:true}</code></div>
+      </div>
+      <span class="pill wait" id="health">checking…</span>
+    </div>
+    <div class="row">
+      <div>
+        <div class="name">Range streaming</div>
+        <div class="detail" id="range-detail">GET a 1&nbsp;KiB byte-range of a disk image → <code>206</code></div>
+      </div>
+      <span class="pill wait" id="range">checking…</span>
+    </div>
+    <div class="row">
+      <div>
+        <div class="name">CORS</div>
+        <div class="detail">cross-origin read allowed (so the kiosk can stream)</div>
+      </div>
+      <span class="pill wait" id="cors">checking…</span>
+    </div>
+  </div>
+
+  <p class="muted">
+    A red check usually means a regional cold-cache miss at the origin — the
+    launcher automatically falls back to the official server, so playing still
+    works. See the <a href="https://github.com/i10s/pc-futbol-local#readme">README</a>.
+  </p>
+
+  <footer>
+    Last checked: <span id="ts">—</span> ·
+    <a href="https://github.com/i10s/pc-futbol-local">Project</a> ·
+    <a href="https://github.com/i10s/pc-futbol-local/blob/master/mirror/cloudflare/README.md">Mirror docs</a>
+  </footer>
+</main>
+
+<script>
+  // The mirror to probe. Override with ?mirror=https://your-host
+  const params = new URLSearchParams(location.search);
+  const MIRROR = (params.get("mirror") || "https://pcf-mirror.ifuentes.workers.dev").replace(/\/+$/, "");
+  const PROBE_FILE = "PCF5.bin";           // a known disk image
+  const PROBE_TOTAL = 447692800;            // its full size in bytes
+
+  document.getElementById("endpoint").textContent = MIRROR;
+
+  const set = (id, cls, text) => {
+    const el = document.getElementById(id);
+    el.className = "pill " + cls;
+    el.textContent = text;
+  };
+
+  async function checkHealth() {
+    try {
+      const r = await fetch(MIRROR + "/_health", { cache: "no-store" });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j && j.ok === true) { set("health", "ok", "ok" + (j.mode ? " · " + j.mode : "")); return true; }
+      set("health", "bad", "HTTP " + r.status); return false;
+    } catch (e) { set("health", "bad", "unreachable"); return false; }
+  }
+
+  async function checkRange() {
+    try {
+      const r = await fetch(MIRROR + "/" + PROBE_FILE, { headers: { Range: "bytes=0-1023" }, cache: "no-store" });
+      const cr = r.headers.get("content-range") || "";
+      if (r.status === 206 && cr.includes("/" + PROBE_TOTAL)) {
+        set("range", "ok", "206 partial");
+        document.getElementById("range-detail").innerHTML = "GET <code>" + PROBE_FILE + "</code> bytes 0–1023 → <code>206</code> · " + cr;
+        return true;
+      }
+      if (r.status === 403) { set("range", "warn", "403 cold-miss"); return "warn"; }
+      set("range", "bad", "HTTP " + r.status); return false;
+    } catch (e) { set("range", "bad", "blocked"); return false; }
+  }
+
+  async function checkCors() {
+    // If the fetches above resolved at all, CORS is working (cross-origin read).
+    try {
+      const r = await fetch(MIRROR + "/_health", { cache: "no-store" });
+      set("cors", r.ok ? "ok" : "warn", r.ok ? "allowed" : "partial");
+      return r.ok;
+    } catch (e) { set("cors", "bad", "blocked"); return false; }
+  }
+
+  (async () => {
+    const [h, rg, c] = await Promise.all([checkHealth(), checkRange(), checkCors()]);
+    document.getElementById("ts").textContent = new Date().toLocaleString();
+    const good = h && c && (rg === true);
+    const warn = rg === "warn";
+    if (good) set("overall", "ok", "operational");
+    else if (warn && h && c) set("overall", "warn", "degraded (fallback ok)");
+    else set("overall", "bad", "issues detected");
+  })();
+</script>
+</body>
+</html>

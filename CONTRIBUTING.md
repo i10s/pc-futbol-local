@@ -49,6 +49,10 @@ Add an entry to [`data/games.json`](data/games.json) — see the format in
 2. Make your change + run `make all`.
 3. Open a PR describing **what** and **why**. CI must be green.
 
+PRs are **squash-merged** (clean, linear history) and the branch is deleted on
+merge. Have a question or idea? Open a
+[Discussion](https://github.com/i10s/pc-futbol-local/discussions).
+
 ### Automated agent loop
 
 Issues are auto-triaged by a code-agent loop. For small, low-risk issues a
@@ -114,6 +118,10 @@ Añade una entrada en [`data/games.json`](data/games.json) — formato en
 1. Haz un fork y crea una rama.
 2. Haz tu cambio + ejecuta `make all`.
 3. Abre un PR explicando **qué** y **por qué**. El CI debe estar en verde.
+
+Los PR se integran con **squash** (historia limpia y lineal) y la rama se borra al
+fusionar. ¿Tienes una duda o idea? Abre una
+[Discusión](https://github.com/i10s/pc-futbol-local/discussions).
 
 ### Bucle de agente automático
 

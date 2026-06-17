@@ -11,13 +11,20 @@ Usage:
     python3 serve.py --root /path/to/docroot --port 8782
 """
 import argparse
+import errno
 import os
 import posixpath
 import re
 import socket
 import sys
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote, urlparse
+
+# macOS in particular can transiently exhaust the socket send buffer while many
+# threads stream a multi-hundred-MB disk image at once, raising ENOBUFS (55) or
+# EAGAIN (35). These are recoverable: back off briefly and retry the write.
+_RETRY_ERRNOS = {errno.ENOBUFS, errno.EAGAIN, errno.EWOULDBLOCK}
 
 CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8",
@@ -65,6 +72,29 @@ class Handler(BaseHTTPRequestHandler):
     def _ctype(self, full):
         return CONTENT_TYPES.get(os.path.splitext(full)[1].lower(),
                                  "application/octet-stream")
+
+    def _write_all(self, data):
+        # Like wfile.write(), but tolerate a temporarily full kernel send buffer
+        # (ENOBUFS/EAGAIN) by backing off and retrying instead of dropping the
+        # connection mid-stream. wfile is unbuffered here, so a write may be
+        # partial (returns the count) or signal "would block" (returns None).
+        view = memoryview(data)
+        delay = 0.001
+        while view:
+            try:
+                n = self.wfile.write(view)
+            except OSError as exc:
+                if exc.errno in _RETRY_ERRNOS:
+                    time.sleep(delay)
+                    delay = min(delay * 2, 0.25)
+                    continue
+                raise
+            if not n:                       # None or 0: buffer full, retry
+                time.sleep(delay)
+                delay = min(delay * 2, 0.25)
+                continue
+            view = view[n:]
+            delay = 0.001
 
     def do_GET(self):
         self._serve(write_body=True)
@@ -119,14 +149,18 @@ class Handler(BaseHTTPRequestHandler):
             with open(full, "rb") as f:
                 f.seek(start)
                 remaining = length
-                chunk = 1024 * 256
+                chunk = 1024 * 64
                 while remaining > 0:
                     data = f.read(min(chunk, remaining))
                     if not data:
                         break
-                    self.wfile.write(data)
+                    self._write_all(data)
                     remaining -= len(data)
         except (BrokenPipeError, ConnectionResetError):
+            pass
+        except OSError:
+            # Client went away (or the socket failed mid-stream) — nothing to do
+            # but stop quietly instead of dumping a traceback per request.
             pass
 
 

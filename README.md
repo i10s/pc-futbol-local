@@ -9,6 +9,7 @@
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue)]()
 [![CI](https://github.com/i10s/pc-futbol-local/actions/workflows/ci.yml/badge.svg)](https://github.com/i10s/pc-futbol-local/actions/workflows/ci.yml)
 [![Mirror health](https://github.com/i10s/pc-futbol-local/actions/workflows/mirror-health.yml/badge.svg)](https://github.com/i10s/pc-futbol-local/actions/workflows/mirror-health.yml)
+[![Status](https://img.shields.io/badge/status-live-2ea44f)](https://ifuentes.net/pc-futbol-local/)
 [![Agent · triage](https://github.com/i10s/pc-futbol-local/actions/workflows/agent-triage.yml/badge.svg)](https://github.com/i10s/pc-futbol-local/actions/workflows/agent-triage.yml)
 [![Agent · implement](https://github.com/i10s/pc-futbol-local/actions/workflows/agent-implement.yml/badge.svg)](https://github.com/i10s/pc-futbol-local/actions/workflows/agent-implement.yml)
 [![Agent · deploy](https://github.com/i10s/pc-futbol-local/actions/workflows/agent-deploy.yml/badge.svg)](https://github.com/i10s/pc-futbol-local/actions/workflows/agent-deploy.yml)
@@ -73,6 +74,14 @@ cd pc-futbol-local
 ./pcf list          # see every available game
 ./pcf play pcf5     # download (once) + play PC Fútbol 5.0
 ```
+
+> 🍺 **Homebrew (macOS/Linux):** prefer a one-liner?
+> ```bash
+> brew tap i10s/pcf https://github.com/i10s/pc-futbol-local
+> brew install --HEAD pc-futbol-local
+> pcf play pcf5
+> ```
+> Games download into `~/.pc-futbol-local` (override with `PCF_PLAY_DIR`).
 
 **Windows (PowerShell)**
 ```powershell
@@ -284,6 +293,14 @@ cd pc-futbol-local
 ./pcf list          # ver todos los juegos disponibles
 ./pcf play pcf5     # descargar (una vez) + jugar a PC Fútbol 5.0
 ```
+
+> 🍺 **Homebrew (macOS/Linux):** ¿prefieres una sola línea?
+> ```bash
+> brew tap i10s/pcf https://github.com/i10s/pc-futbol-local
+> brew install --HEAD pc-futbol-local
+> pcf play pcf5
+> ```
+> Los juegos se descargan en `~/.pc-futbol-local` (cámbialo con `PCF_PLAY_DIR`).
 
 **Windows (PowerShell)**
 ```powershell

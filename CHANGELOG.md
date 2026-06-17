@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Homebrew install** (`Formula/pc-futbol-local.rb`): `brew tap` +
+  `brew install --HEAD pc-futbol-local`. Packaged installs store game data in
+  `~/.pc-futbol-local` via the new `PCF_PLAY_DIR` override (bash + PowerShell).
+- **Public status page** (GitHub Pages, `docs/index.html`): live, client-side
+  probes of the community mirror (health, HTTP Range, CORS) — no backend, the
+  Worker's CORS lets the browser check the edge directly.
 - **`pcf verify`**: checks downloaded files against the manifest (byte size
   always, SHA-256 when recorded), with `--record` to print checksums a
   maintainer can paste into `data/games.json`. Optional `sha256` / `state_sha256`

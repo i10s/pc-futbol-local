@@ -164,6 +164,21 @@ class Handler(BaseHTTPRequestHandler):
             pass
 
 
+class Server(ThreadingHTTPServer):
+    daemon_threads = True
+    # The browser aborts keep-alive connections all the time (seeking inside a
+    # disk image, closing a tab). socketserver would print a full traceback for
+    # each one; swallow the benign disconnects and re-raise anything real.
+    def handle_error(self, request, client_address):
+        exc = sys.exc_info()[1]
+        if isinstance(exc, (BrokenPipeError, ConnectionResetError,
+                            ConnectionAbortedError, TimeoutError)):
+            return
+        if isinstance(exc, OSError) and exc.errno in _RETRY_ERRNOS:
+            return
+        super().handle_error(request, client_address)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=os.getcwd())
@@ -173,7 +188,7 @@ def main():
 
     Handler.root = os.path.abspath(args.root)
     try:
-        httpd = ThreadingHTTPServer((args.host, args.port), Handler)
+        httpd = Server((args.host, args.port), Handler)
     except OSError as exc:
         print(f"[serve] cannot bind {args.host}:{args.port} -> {exc}",
               file=sys.stderr)

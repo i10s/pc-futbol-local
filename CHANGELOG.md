@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **5 new games** mirrored from the official catalog (now 16 total): PC Fútbol
+  5.0 Apertura '97 (`pcf5arg`), PC Fútbol 6.0 Apertura '98 (`pcf6arg`), PC Barça
+  '99 (`pcbarca99`), PC Real Madrid 99 (`pcrm`) and PC Atlético de Madrid 2000
+  (`atm2000`). Sizes verified against origin; the community mirror serves them
+  transparently (no Worker change needed).
 - **Automated releases** (`.github/workflows/release.yml`): pushing a `vX.Y.Z`
   tag publishes the GitHub Release (notes from `CHANGELOG.md`) and pins the
   Homebrew formula's `url` + `sha256` to the tag automatically.

@@ -14,7 +14,7 @@
 [![Agent · implement](https://github.com/i10s/pc-futbol-local/actions/workflows/agent-implement.yml/badge.svg)](https://github.com/i10s/pc-futbol-local/actions/workflows/agent-implement.yml)
 [![Agent · deploy](https://github.com/i10s/pc-futbol-local/actions/workflows/agent-deploy.yml/badge.svg)](https://github.com/i10s/pc-futbol-local/actions/workflows/agent-deploy.yml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Games](https://img.shields.io/badge/games-11-orange)]()
+[![Games](https://img.shields.io/badge/games-16-orange)]()
 [![Made with](https://img.shields.io/badge/emulator-v86-purple)](https://github.com/copy/v86)
 
 [English](#-english) · [Español](#-español) · [Full guide / Guía completa](docs/)
@@ -135,6 +135,11 @@ instant**. Your in-game saved games are kept in your browser.
 | `pccalcio`   | 1996 | PC Calcio 4.0                                 | ~0.5 GB      |
 | `euro96`     | 1996 | PC Selección Española · Eurocopa '96          | ~0.5 GB      |
 | `wc98`       | 1998 | PC Selección Española · Mundial '98           | ~1.3 GB      |
+| `pcf5arg`    | 1997 | PC Fútbol 5.0 · Apertura '97 (Argentina)      | ~0.9 GB      |
+| `pcf6arg`    | 1998 | PC Fútbol 6.0 · Apertura '98 (Argentina)      | ~1.6 GB      |
+| `pcbarca99`  | 1999 | PC Barça '99                                  | ~1.6 GB      |
+| `pcrm`       | 1999 | PC Real Madrid 99                             | ~1.3 GB      |
+| `atm2000`    | 2000 | PC Atlético de Madrid 2000                    | ~1.7 GB      |
 | `pcbasket`   | 1996 | PC Basket 4.0                                 | ~0.5 GB      |
 | `pcbasket65` | 1999 | PC Basket 6.5                                 | ~1.6 GB      |
 
@@ -356,6 +361,11 @@ offline e instantáneo**. Tus partidas guardadas se conservan en el navegador.
 | `pccalcio`   | 1996 | PC Calcio 4.0                                 | ~0,5 GB       |
 | `euro96`     | 1996 | PC Selección Española · Eurocopa '96          | ~0,5 GB       |
 | `wc98`       | 1998 | PC Selección Española · Mundial '98           | ~1,3 GB       |
+| `pcf5arg`    | 1997 | PC Fútbol 5.0 · Apertura '97 (Argentina)      | ~0,9 GB       |
+| `pcf6arg`    | 1998 | PC Fútbol 6.0 · Apertura '98 (Argentina)      | ~1,6 GB       |
+| `pcbarca99`  | 1999 | PC Barça '99                                  | ~1,6 GB       |
+| `pcrm`       | 1999 | PC Real Madrid 99                             | ~1,3 GB       |
+| `atm2000`    | 2000 | PC Atlético de Madrid 2000                    | ~1,7 GB       |
 | `pcbasket`   | 1996 | PC Basket 4.0                                 | ~0,5 GB       |
 | `pcbasket65` | 1999 | PC Basket 6.5                                 | ~1,6 GB       |
 

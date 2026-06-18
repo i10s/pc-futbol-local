@@ -114,6 +114,70 @@
       "state": "wc98_state.bin"
     },
     {
+      "id": "pcf5arg",
+      "name": "PC Fútbol 5.0 · Apertura '97 (Argentina)",
+      "year": 1997,
+      "kind": "win98",
+      "dir": "PCF5A",
+      "disks": [
+        { "file": "win98_pcf5arg.bin", "size": 523837440, "slot": "hda" },
+        { "file": "PCF5ARG.bin", "size": 401160192, "slot": "cdrom" }
+      ],
+      "state": "pcf5arg_state.bin"
+    },
+    {
+      "id": "pcf6arg",
+      "name": "PC Fútbol 6.0 · Apertura '98 (Argentina)",
+      "year": 1998,
+      "kind": "win98",
+      "dir": "PCF6A",
+      "disks": [
+        { "file": "win98_pcf6arg.bin", "size": 523837440, "slot": "hda" },
+        { "file": "win98_pcf6arg_data.bin", "size": 429496320, "slot": "hdb" },
+        { "file": "PCF6ARG.bin", "size": 690288640, "slot": "cdrom" }
+      ],
+      "state": "pcf6arg_state.bin"
+    },
+    {
+      "id": "pcbarca99",
+      "name": "PC Barça '99",
+      "year": 1999,
+      "kind": "win98",
+      "dir": "PCB99",
+      "disks": [
+        { "file": "win98_pcbarca99.bin", "size": 523837440, "slot": "hda" },
+        { "file": "win98_pcbarca99_data.bin", "size": 429496320, "slot": "hdb" },
+        { "file": "PCBARCA99.bin", "size": 675543040, "slot": "cdrom" }
+      ],
+      "state": "pcbarca99_state.bin"
+    },
+    {
+      "id": "pcrm",
+      "name": "PC Real Madrid 99",
+      "year": 1999,
+      "kind": "win98",
+      "dir": "PCRM99",
+      "disks": [
+        { "file": "win98_pcrm.bin", "size": 523837440, "slot": "hda" },
+        { "file": "win98_pcrm_data.bin", "size": 322122240, "slot": "hdb" },
+        { "file": "PCRM.bin", "size": 437626880, "slot": "cdrom" }
+      ],
+      "state": "pcrm_state.bin"
+    },
+    {
+      "id": "atm2000",
+      "name": "PC Atlético de Madrid 2000",
+      "year": 2000,
+      "kind": "win98",
+      "dir": "PCATMA",
+      "disks": [
+        { "file": "win98_atm2000.bin", "size": 523837440, "slot": "hda" },
+        { "file": "win98_atm2000_data.bin", "size": 536870912, "slot": "hdb" },
+        { "file": "ATM2000.bin", "size": 690270208, "slot": "cdrom" }
+      ],
+      "state": "atm2000_state.bin"
+    },
+    {
       "id": "pcbasket",
       "name": "PC Basket 4.0",
       "year": 1996,

@@ -196,7 +196,7 @@ mirror_runtime() {
   for f in "${RUNTIME_FILES[@]}"; do
     # Prefer the cached mirror so the origin is hit ~once per PoP, not per user;
     # fall back to the official host if the mirror can't serve it.
-    if ! fetch_quiet "$DISKS/$f" "$PLAY_DIR/$f"; then
+    if ! fetch_quiet "$DISCOS/$f" "$PLAY_DIR/$f"; then
       fetch_quiet "$ORIGIN_OFFICIAL/$f" "$PLAY_DIR/$f" || warn "could not fetch $f (continuing)"
     fi
   done
@@ -206,7 +206,7 @@ mirror_runtime() {
     sed -i.bak "s#$DISCOS_OFFICIAL/#disks/#g" "$PLAY_DIR/games.js" && rm -f "$PLAY_DIR/games.js.bak"
     # Best-effort: mirror every game logo referenced in games.js.
     grep -oE '/assets/[A-Za-z0-9_-]+\.(png|jpg|svg)' "$PLAY_DIR/games.js" | sort -u | while read -r a; do
-      [ -f "$PLAY_DIR$a" ] || fetch_quiet "$DISKS$a" "$PLAY_DIR$a" || fetch_quiet "$ORIGIN_OFFICIAL$a" "$PLAY_DIR$a" || true
+      [ -f "$PLAY_DIR$a" ] || fetch_quiet "$DISCOS$a" "$PLAY_DIR$a" || fetch_quiet "$ORIGIN_OFFICIAL$a" "$PLAY_DIR$a" || true
     done
   fi
 

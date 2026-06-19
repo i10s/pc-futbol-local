@@ -68,13 +68,14 @@ the origin.
 
 The mirror **stores nothing permanently** in proxy mode — it only holds copies
 in Cloudflare's edge cache, which Cloudflare fills and evicts for you. The
-Worker serves two content classes, each routed to its origin with its own cache
+Worker serves three content classes, each routed to its origin with its own cache
 policy so the whole experience (kiosk **and** disks) tracks the upstream while
 the origin is barely touched:
 
 | Content | Origin (`wrangler.toml`) | Edge policy | Origin load | Sync |
 |---------|--------------------------|-------------|-------------|------|
 | **Disk images** `*.bin` | `ORIGIN` (discos) | `immutable`, ~1 year | One pull per object per PoP, ever | N/A — bytes never change |
+| **Savestates** `*_state.bin` | `KIOSK_ORIGIN` (online) | 6 h + `stale-while-revalidate` | A few KB per PoP per window | Auto — re-captures picked up within hours |
 | **Kiosk / runtime** html·js·wasm·bios·assets | `KIOSK_ORIGIN` (online) | 6 h + `stale-while-revalidate` | A few KB per PoP per window | Auto — new builds picked up within hours |
 
 So you get a **single cache, zero storage** mirror that keeps itself in sync:

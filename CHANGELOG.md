@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Formula guard in CI**: `ruby -c` + `brew style` on `Formula/` so the
   Homebrew formula can't drift.
 
+### Fixed
+- **Mirror 404 on savestates**: the Cloudflare Worker matched every `*.bin`
+  filename as a disk image and proxied it to the disk host, where savestates
+  don't exist. `*_state.bin` files are now routed to the runtime origin (where
+  they live) and cached with revalidation, so they're served correctly through
+  the mirror (`https://pcf-mirror.ifuentes.workers.dev/<id>_state.bin` → `206`).
+
 ## [0.1.0] - 2026-06-17
 
 First tagged release — gives the Homebrew formula a stable `url` + `sha256`

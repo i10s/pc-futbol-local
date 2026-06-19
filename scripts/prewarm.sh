@@ -32,7 +32,8 @@ echo "Pre-warming $MIRROR"
 warmed=0; failed=0
 for id in $ids; do
   while IFS=$'\t' read -r kind file _size _sha; do
-    [ "$kind" = "disk" ] || continue
+    # Warm disk images and savestates (both are served through the mirror).
+    case "$kind" in disk|state) ;; *) continue;; esac
     out=$(curl -s -A "$UA" -r 0-1023 -o /dev/null -D - -w '\nCODE=%{http_code}\n' "$MIRROR/$file" || true)
     code=$(printf '%s\n' "$out" | sed -n 's/^CODE=//p' | tail -1)
     hit=$(printf '%s\n' "$out" | tr -d '\r' | awk -F': ' 'tolower($1)=="cf-cache-status"{print $2}')

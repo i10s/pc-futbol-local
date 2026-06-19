@@ -34,6 +34,10 @@ const KIOSK_TTL = 60 * 60 * 6; // 6 h edge cache for the (small) front-end
 
 // A bare disk-image filename, e.g. "PCF5.bin". No slashes → not a kiosk asset.
 const DISK_RE = /^[A-Za-z0-9._-]+\.bin$/;
+// Savestate blobs (e.g. "pcf5_state.bin") also end in .bin, but they live on the
+// runtime/online origin — NOT the disk host — and may be re-captured upstream.
+// Matched before DISK_RE so they are routed (and cached) correctly.
+const STATE_RE = /^[A-Za-z0-9._-]+_state\.bin$/;
 // The known, safe front-end paths. Keeps the Worker from being an open relay.
 // (The /papi backend is intentionally NOT proxied — the launcher stubs it
 // locally so the kiosk runs fully offline.)
@@ -61,7 +65,15 @@ export default {
       return withCORS(new Response("Not found", { status: 404 }));
     }
 
-    // 1) Disk images — immutable, served from R2 if bound, else proxied.
+    // 1) Savestates — small, live on the runtime origin (never in R2), and may
+    //    be re-captured upstream → proxy from the kiosk origin with revalidation.
+    //    Checked before DISK_RE because "*_state.bin" also matches a disk name.
+    if (STATE_RE.test(path)) {
+      const origin = env.KIOSK_ORIGIN || "https://online.dinamicmultimedia.es";
+      return serveProxied(origin, path, request, { ttl: KIOSK_TTL, immutable: false, tag: "state" });
+    }
+
+    // 2) Disk images — immutable, served from R2 if bound, else proxied.
     if (DISK_RE.test(path)) {
       const origin = env.ORIGIN || "https://discos.dinamicmultimedia.es";
       return env.DISKS
@@ -69,7 +81,7 @@ export default {
         : serveProxied(origin, path, request, { ttl: YEAR, immutable: true, tag: "disk" });
     }
 
-    // 2) Kiosk runtime — allow-listed, revalidated so it tracks the origin.
+    // 3) Kiosk runtime — allow-listed, revalidated so it tracks the origin.
     if (KIOSK_RE.test(path)) {
       const origin = env.KIOSK_ORIGIN || "https://online.dinamicmultimedia.es";
       return serveProxied(origin, path, request, { ttl: KIOSK_TTL, immutable: false, tag: "kiosk" });

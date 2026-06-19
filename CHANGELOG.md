@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-19
+
 ### Added
 - **5 new games** mirrored from the official catalog (now 16 total): PC Fútbol
   5.0 Apertura '97 (`pcf5arg`), PC Fútbol 6.0 Apertura '98 (`pcf6arg`), PC Barça
@@ -90,12 +92,8 @@ First tagged release — gives the Homebrew formula a stable `url` + `sha256`
   `.editorconfig`.
 - Community health files: `CONTRIBUTING.md` (EN/ES), `CODE_OF_CONDUCT.md`,
   `SECURITY.md`, issue forms and a pull-request template.
-
-## [0.1.0] — 2026-06-16
-
-### Added
-- Initial release: one-command local launcher for the classic **PC Fútbol**
-  games (and PC Basket / PC Calcio) for **macOS, Linux and Windows**.
-- Downloads the official free disk images on demand and runs them in the browser
-  via the **v86** emulator, served locally with HTTP Range support.
-- Bilingual documentation (English / Español). No game data is bundled.
+- One-command local launcher for the classic **PC Fútbol** games (and PC Basket
+  / PC Calcio) for **macOS, Linux and Windows**, downloading the official free
+  disk images on demand and running them in the browser via the **v86**
+  emulator, served locally with HTTP Range support. Bilingual documentation
+  (English / Español). No game data is bundled.

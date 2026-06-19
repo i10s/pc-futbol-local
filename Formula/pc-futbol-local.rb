@@ -10,8 +10,8 @@
 class PcFutbolLocal < Formula
   desc "Play the classic PC Fútbol games locally in your browser"
   homepage "https://github.com/i10s/pc-futbol-local"
-  url "https://github.com/i10s/pc-futbol-local/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "2ae6f480d810afb014c53437142ed96231524164f7637987e2fbda842f6ebc2c"
+  url "https://github.com/i10s/pc-futbol-local/archive/refs/tags/v0.2.0.tar.gz"
+  sha256 "67707bf360badb816a170d41e1f681d012026973197f72717adb373e2507e10c"
   license "MIT"
   head "https://github.com/i10s/pc-futbol-local.git", branch: "master"
 

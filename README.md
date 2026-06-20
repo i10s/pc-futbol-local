@@ -105,6 +105,8 @@ instant**. Your in-game saved games are kept in your browser.
 | `pcf verify [id]`    | Check downloaded files against the manifest (size + checksum) |
 | `pcf menu`           | Open the game menu in your browser                   |
 | `pcf update`         | Refresh the local emulator runtime                   |
+| `pcf saves share <file>` | Upload a `.pcfsave` and get a short share code   |
+| `pcf saves get <code>`   | Download a shared saved career by its code       |
 | `pcf install-desktop`| **(Linux)** add an app launcher to your menu         |
 | `pcf doctor`         | Check your environment (`--json` for machine output) |
 | `pcf clean`          | Remove all downloaded data                           |
@@ -136,6 +138,13 @@ them with you:
   by the same Cloudflare mirror (an R2 bucket); shared saves auto-expire after
   90 days. Point it elsewhere with `PCF_SAVES_BASE` or a `saves` key in
   `data/mirror.json`. See [mirror/cloudflare/](mirror/cloudflare/).
+
+Prefer the terminal? The same share-by-code works from the CLI:
+
+```bash
+pcf saves share my-career.pcfsave   # → prints a short code, e.g. ABCDEFGHJK
+pcf saves get  ABCDEFGHJK            # ← downloads it next to you
+```
 
 | id           | Year | Game                                          | Approx. size |
 | ------------ | ---- | --------------------------------------------- | ------------ |
@@ -342,6 +351,8 @@ offline e instantáneo**. Tus partidas guardadas se conservan en el navegador.
 | `pcf verify [id]`    | Comprueba lo descargado contra el manifiesto (tamaño + checksum) |
 | `pcf menu`           | Abre el menú de juegos en el navegador                   |
 | `pcf update`         | Actualiza el runtime del emulador                        |
+| `pcf saves share <fichero>` | Sube un `.pcfsave` y obtén un código para compartir |
+| `pcf saves get <código>`    | Descarga una partida compartida por su código    |
 | `pcf install-desktop`| **(Linux)** añade un acceso directo a tu menú de apps    |
 | `pcf doctor`         | Comprueba tu entorno (`--json` para salida de máquina)   |
 | `pcf clean`          | Borra todo lo descargado                                 |
@@ -375,6 +386,13 @@ para llevártelas contigo:
   exacta. Usa el mismo mirror de Cloudflare (un bucket R2); las partidas
   compartidas caducan a los 90 días. Cámbialo con `PCF_SAVES_BASE` o la clave
   `saves` de `data/mirror.json`. Mira [mirror/cloudflare/](mirror/cloudflare/).
+
+¿Prefieres la terminal? El mismo «compartir por código» funciona desde el CLI:
+
+```bash
+pcf saves share mi-carrera.pcfsave   # → imprime un código, p. ej. ABCDEFGHJK
+pcf saves get  ABCDEFGHJK             # ← lo descarga junto a ti
+```
 
 | id           | Año  | Juego                                         | Tamaño aprox. |
 | ------------ | ---- | --------------------------------------------- | ------------- |

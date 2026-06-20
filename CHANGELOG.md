@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Worker + R2 bucket (`pcf-saves`), with strict validation (magic bytes, 4 MB
   cap, unguessable codes, 90-day expiry) and is feature-flagged: remove the
   `SAVES` binding to disable it (endpoints then return 503).
+- **CLI access to shared saves:** `pcf saves share <file.pcfsave>` uploads a
+  save and prints a share code; `pcf saves get <code>` downloads one. Works in
+  both the bash and PowerShell launchers.
 - **`web/pcf-saves.js`** companion script, injected into the mirrored kiosk by
   the launcher, plus `papi/saves.json` pointing the kiosk at the share endpoint.
 - **Config:** `PCF_SAVES_BASE` env var and a `saves` key in `data/mirror.json`

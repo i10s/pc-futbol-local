@@ -39,6 +39,7 @@ ${c_bold}Usage${c_rst}
   ./pcf verify [id]   Check downloaded files against the manifest
   ./pcf menu          Open the game menu in your browser
   ./pcf update        Refresh the local emulator runtime
+  ./pcf saves <cmd>   Share saved careers by code (share | get)
   ./pcf doctor        Check your environment (add --json for machine output)
   ./pcf install-desktop   (Linux) add an app launcher to your menu
   ./pcf clean         Remove all downloaded data
@@ -47,6 +48,8 @@ ${c_bold}Examples${c_rst}
   ./pcf play pcf5
   ./pcf list
   PCF_PORT=9001 ./pcf play pcf7   # custom port
+  ./pcf saves share my-career.pcfsave   # upload, get a share code
+  ./pcf saves get ABCDEFGHJK             # download a friend's save
 
 Run ${c_bold}./pcf list${c_rst} to see all game ids.
 EOF
@@ -62,6 +65,7 @@ main() {
     verify|check)    cmd_verify "$@";;
     menu)            cmd_menu;;
     update)          cmd_update;;
+    saves|save)      cmd_saves "$@";;
     install-desktop) cmd_install_desktop;;
     doctor)          cmd_doctor "$@";;
     clean)           cmd_clean;;

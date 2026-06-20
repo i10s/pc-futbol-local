@@ -152,6 +152,13 @@ in `wrangler.toml` to turn it off.
 Point the launcher at a different share endpoint with `PCF_SAVES_BASE` or a
 `saves` key in `data/mirror.json` (defaults to the community Worker).
 
+Both the in-kiosk menu and the **CLI** talk to these endpoints:
+
+```bash
+pcf saves share my-career.pcfsave   # POST /papi/save  → prints a code
+pcf saves get  ABCDEFGHJK           # GET  /papi/save/<code>
+```
+
 > ⚠️ The upload endpoint is **unauthenticated by design** (anyone with the kiosk
 > can share). Codes are unguessable and blobs auto-expire, but add a
 > **Rate limiting rule** on `/papi/save` if you expose this publicly.

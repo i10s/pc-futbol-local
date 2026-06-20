@@ -476,6 +476,70 @@ cmd_update() {
   ok "Runtime updated. Your downloaded games are kept."
 }
 
+# --- Shareable saved careers (cloud share-by-code) ---------------------------
+# Transport for the small ".pcfsave" files exported from the in-game
+# "💾 Partidas" menu: upload one to get a short code, or download one by code.
+saves_usage() {
+  cat <<EOF
+${c_bold}pcf saves${c_rst} — share saved careers by a short code (Cloudflare-backed).
+
+${c_bold}Usage${c_rst}
+  pcf saves share <file.pcfsave> [game-id]   Upload a save, print its share code
+  pcf saves get <code> [dest.pcfsave]        Download a shared save by code
+
+${c_bold}Notes${c_rst}
+  • Export a .pcfsave from the in-game ${c_bold}💾 Partidas${c_rst} menu first,
+    then import a downloaded one from that same menu.
+  • Shared saves auto-expire after 90 days.
+  • Endpoint: ${SAVES_BASE} (override with PCF_SAVES_BASE).
+EOF
+}
+
+saves_share() {
+  [ $# -ge 1 ] || die "usage: pcf saves share <file.pcfsave> [game-id]"
+  local file="$1" magic size url resp code
+  [ -f "$file" ] || die "File not found: $file"
+  magic="$(head -c 8 "$file" 2>/dev/null || true)"
+  [ "$magic" = "PCFSAVE1" ] || die "Not a .pcfsave file (bad header): $file"
+  size="$(wc -c < "$file" | tr -d ' ')"
+  [ "$size" -le $((4 * 1024 * 1024)) ] || die "Save too large (>4 MB): $file"
+  url="$SAVES_BASE/papi/save"
+  [ $# -ge 2 ] && [ -n "$2" ] && url="$url?game=$2"
+  info "Uploading $file ($size bytes) to ${SAVES_BASE}…"
+  resp="$(curl "${CURL_COMMON[@]}" --silent --show-error -X POST \
+    -H "Content-Type: application/octet-stream" -H "X-PCF-Save: 1" \
+    --data-binary @"$file" "$url")" || die "Upload failed (is cloud sharing enabled?)."
+  code="$(printf '%s' "$resp" | sed -nE 's/.*"code"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p')"
+  [ -n "$code" ] || die "Upload rejected: $resp"
+  ok "Shared! Your code: ${c_bold}$code${c_rst}"
+  log "  A friend downloads it with: ${c_dim}pcf saves get $code${c_rst}"
+  log "  ${c_dim}The code expires in 90 days.${c_rst}"
+}
+
+saves_get() {
+  [ $# -ge 1 ] || die "usage: pcf saves get <code> [dest.pcfsave]"
+  local code="$1" dest="${2:-}" magic
+  [[ "$code" =~ ^[0-9A-HJKMNP-TV-Z]{10}$ ]] || die "Invalid code (expected 10 characters): $code"
+  [ -n "$dest" ] || dest="$code.pcfsave"
+  info "Downloading $code from ${SAVES_BASE}…"
+  curl "${CURL_COMMON[@]}" --silent --show-error -o "$dest" "$SAVES_BASE/papi/save/$code" \
+    || die "Download failed (code wrong, expired, or sharing disabled)."
+  magic="$(head -c 8 "$dest" 2>/dev/null || true)"
+  [ "$magic" = "PCFSAVE1" ] || { rm -f "$dest"; die "Server returned an invalid save."; }
+  ok "Saved to ${c_bold}$dest${c_rst}"
+  log "  Import it from the in-game ${c_bold}💾 Partidas${c_rst} menu (Importar archivo)."
+}
+
+cmd_saves() {
+  local sub="${1:-help}"; shift || true
+  case "$sub" in
+    share|upload|put)   saves_share "$@";;
+    get|download|fetch) saves_get "$@";;
+    help|-h|--help)     saves_usage;;
+    *)                  warn "Unknown saves command: $sub"; saves_usage; exit 1;;
+  esac
+}
+
 cmd_install_desktop() {
   case "$(os_kind)" in linux|wsl) ;; *) die "install-desktop is only available on Linux.";; esac
   mirror_runtime

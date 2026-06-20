@@ -16,7 +16,8 @@
 param(
   [Parameter(Position = 0)] [string] $Command = "help",
   [Parameter(Position = 1)] [string] $Game = "",
-  [Parameter(Position = 2)] [string] $Option = ""
+  [Parameter(Position = 2)] [string] $Option = "",
+  [Parameter(Position = 3)] [string] $Arg3 = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -307,6 +308,94 @@ function Update {
   Ok "Runtime updated. Your downloaded games are kept."
 }
 
+# --- Shareable saved careers (cloud share-by-code) ---------------------------
+# Transport for the small ".pcfsave" files exported from the in-game
+# "💾 Partidas" menu: upload one to get a short code, or download one by code.
+function Save-Magic($path) {
+  if (-not (Test-Path $path -PathType Leaf)) { return "" }
+  $fs = [System.IO.File]::OpenRead($path)
+  try {
+    $buf = New-Object byte[] 8
+    $n = $fs.Read($buf, 0, 8)
+    return [System.Text.Encoding]::ASCII.GetString($buf, 0, $n)
+  } finally { $fs.Close() }
+}
+
+function Saves-Usage {
+  @"
+pcf saves — share saved careers by a short code (Cloudflare-backed).
+
+Usage
+  .\pcf.ps1 saves share <file.pcfsave> [game-id]   Upload a save, print its code
+  .\pcf.ps1 saves get <code> [dest.pcfsave]        Download a shared save by code
+
+Notes
+  - Export a .pcfsave from the in-game 'Partidas' menu first, then import a
+    downloaded one from that same menu.
+  - Shared saves auto-expire after 90 days.
+  - Endpoint: $SavesBase (override with PCF_SAVES_BASE).
+"@ | Write-Host
+}
+
+function Save-Share($file, $game) {
+  if (-not $file) { Die "usage: .\pcf.ps1 saves share <file.pcfsave> [game-id]" }
+  if (-not (Test-Path $file -PathType Leaf)) { Die "File not found: $file" }
+  if ((Save-Magic $file) -ne "PCFSAVE1") { Die "Not a .pcfsave file (bad header): $file" }
+  $size = (Get-Item $file).Length
+  if ($size -gt 4MB) { Die "Save too large (>4 MB): $file" }
+  $url = "$SavesBase/papi/save"
+  if ($game) { $url = "${url}?game=$game" }
+  Info "Uploading $file ($size bytes) to $SavesBase…"
+  $resp = $null
+  if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
+    $resp = & curl.exe --location --fail --silent --show-error -X POST `
+      -H "Content-Type: application/octet-stream" -H "X-PCF-Save: 1" `
+      --data-binary "@$file" $url
+    if ($LASTEXITCODE -ne 0) { Die "Upload failed (is cloud sharing enabled?)." }
+  } else {
+    try {
+      $bytes = [System.IO.File]::ReadAllBytes($file)
+      $r = Invoke-RestMethod -Uri $url -Method Post -Body $bytes `
+        -ContentType "application/octet-stream" -Headers @{ "X-PCF-Save" = "1" }
+      $resp = $r | ConvertTo-Json -Compress
+    } catch { Die "Upload failed: $($_.Exception.Message)" }
+  }
+  $code = ([regex]'"code"\s*:\s*"([^"]+)"').Match([string]$resp).Groups[1].Value
+  if (-not $code) { Die "Upload rejected: $resp" }
+  Ok "Shared! Your code: $code"
+  Write-Host "  A friend downloads it with: .\pcf.ps1 saves get $code" -ForegroundColor DarkGray
+  Write-Host "  The code expires in 90 days." -ForegroundColor DarkGray
+}
+
+function Save-Get($code, $dest) {
+  if (-not $code) { Die "usage: .\pcf.ps1 saves get <code> [dest.pcfsave]" }
+  if ($code -notmatch '^[0-9A-HJKMNP-TV-Z]{10}$') { Die "Invalid code (expected 10 characters): $code" }
+  if (-not $dest) { $dest = "$code.pcfsave" }
+  Info "Downloading $code from $SavesBase…"
+  if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
+    & curl.exe --location --fail --silent --show-error -o $dest "$SavesBase/papi/save/$code"
+    if ($LASTEXITCODE -ne 0) { Die "Download failed (code wrong, expired, or sharing disabled)." }
+  } else {
+    try { Invoke-WebRequest -Uri "$SavesBase/papi/save/$code" -OutFile $dest -UseBasicParsing }
+    catch { Die "Download failed (code wrong, expired, or sharing disabled)." }
+  }
+  if ((Save-Magic $dest) -ne "PCFSAVE1") { Remove-Item -Force $dest -ErrorAction SilentlyContinue; Die "Server returned an invalid save." }
+  Ok "Saved to $dest"
+  Write-Host "  Import it from the in-game 'Partidas' menu (Importar archivo)." -ForegroundColor DarkGray
+}
+
+function Save-Dispatch($sub, $a, $b) {
+  switch (("" + $sub).ToLower()) {
+    "share"    { Save-Share $a $b }
+    "upload"   { Save-Share $a $b }
+    "put"      { Save-Share $a $b }
+    "get"      { Save-Get $a $b }
+    "download" { Save-Get $a $b }
+    "fetch"    { Save-Get $a $b }
+    default    { Saves-Usage }
+  }
+}
+
 function Show-List {
   Write-Host "Available games:" -ForegroundColor White
   foreach ($g in Get-Games) {
@@ -370,12 +459,15 @@ Usage
   .\pcf.ps1 verify [id]   Check downloaded files against the manifest
   .\pcf.ps1 menu          Open the game menu in your browser
   .\pcf.ps1 update        Refresh the local emulator runtime
+  .\pcf.ps1 saves <cmd>   Share saved careers by code (share | get)
   .\pcf.ps1 doctor        Check your environment (add --json for machine output)
   .\pcf.ps1 clean         Remove all downloaded data
 
 Examples
   .\pcf.ps1 play pcf5
   .\pcf.ps1 list
+  .\pcf.ps1 saves share my-career.pcfsave
+  .\pcf.ps1 saves get ABCDEFGHJK
 "@ | Write-Host
 }
 
@@ -397,6 +489,8 @@ switch ($Command.ToLower()) {
   }
   "menu"   { Menu }
   "update" { Update }
+  "saves"  { Save-Dispatch $Game $Option $Arg3 }
+  "save"   { Save-Dispatch $Game $Option $Arg3 }
   "doctor" { Doctor -Json:([bool]($Game -eq '--json')) }
   "clean"  {
     $a = Read-Host "Remove ALL downloaded games and the local emulator ($PlayDir)? [y/N]"

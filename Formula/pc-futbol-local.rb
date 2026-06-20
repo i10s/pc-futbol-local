@@ -36,6 +36,10 @@ class PcFutbolLocal < Formula
       Get started:
         pcf list
         pcf play pcf5
+
+      Share a saved career with a friend (Cloudflare-backed):
+        pcf saves share my-career.pcfsave   # → prints a short code
+        pcf saves get  ABCDEFGHJK           # ← download by code
     EOS
   end
 

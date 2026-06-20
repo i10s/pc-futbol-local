@@ -1,5 +1,5 @@
 {
-  "_comment": "Active community mirror. Disk images are downloaded from this Cloudflare Worker by default (proxy + edge cache). Savestates stay on the official origin (tiny). Override per-user with PCF_MIRROR / PCF_DISKS_BASE / PCF_ORIGIN_BASE.",
+  "_comment": "Active community mirror. Both disk images and savestates are downloaded through this Cloudflare Worker by default — it adds the browser fingerprint (and, for disks, the ?k= signing token) the official hosts' WAF now requires. Override per-user with PCF_MIRROR / PCF_DISKS_BASE / PCF_ORIGIN_BASE.",
   "disks": "https://pcf-mirror.ifuentes.workers.dev",
-  "origin": "https://online.dinamicmultimedia.es"
+  "origin": "https://pcf-mirror.ifuentes.workers.dev"
 }

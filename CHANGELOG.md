@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `Referer`/`Origin` + `Sec-Fetch-*`). The same browser headers are now sent for
   savestates and runtime too. Disks are cached under the token-less URL so the
   rotating token never fragments the edge cache. No launcher changes required.
+- **Savestates download through the mirror too.** The official runtime host now
+  challenges plain requests as well, so `data/mirror.json` points `origin` at
+  the Worker (not the bare origin); the launcher fetches savestates via the
+  mirror, which adds the required browser headers. Fixes a 403 on the small
+  `*_state.bin` files during `pcf get` / `pcf play`.
 
 ### Added
 - **Shareable career saves.** A new in-kiosk "💾 Partidas" menu lets you export

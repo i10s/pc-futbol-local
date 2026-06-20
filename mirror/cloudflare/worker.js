@@ -32,6 +32,17 @@
 const YEAR = 60 * 60 * 24 * 365;
 const KIOSK_TTL = 60 * 60 * 6; // 6 h edge cache for the (small) front-end
 
+// The official disk host sits behind a Cloudflare WAF that blocks plain
+// automated requests: a disk only downloads with a short-lived signing token
+// (from <kiosk-origin>/papi/sign) AND browser-like request headers. The Worker
+// fetches that token itself and replays it transparently, so the launcher and
+// the in-browser kiosk both get working disks with zero manual steps.
+const BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+  "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+const TOKEN_TTL_MS = 3 * 60 * 1000; // re-fetch the signing token at most every 3 min
+let _diskToken = { k: null, exp: 0 }; // per-isolate cache of the current token
+
 // Shared career saves (opt-in: only active when an R2 "SAVES" bucket is bound).
 // They are the player's own tiny save blocks packed into a ".pcfsave" file.
 const SAVE_MAGIC = "PCFSAVE1";                 // first 8 bytes of every .pcfsave
@@ -85,21 +96,22 @@ export default {
     //    Checked before DISK_RE because "*_state.bin" also matches a disk name.
     if (STATE_RE.test(path)) {
       const origin = env.KIOSK_ORIGIN || "https://online.dinamicmultimedia.es";
-      return serveProxied(origin, path, request, { ttl: KIOSK_TTL, immutable: false, tag: "state" });
+      return serveProxied(origin, path, request, { ttl: KIOSK_TTL, immutable: false, tag: "state", browser: true });
     }
 
     // 2) Disk images — immutable, served from R2 if bound, else proxied.
     if (DISK_RE.test(path)) {
       const origin = env.ORIGIN || "https://discos.dinamicmultimedia.es";
+      const kiosk = env.KIOSK_ORIGIN || "https://online.dinamicmultimedia.es";
       return env.DISKS
         ? serveFromR2(env.DISKS, path, request)
-        : serveProxied(origin, path, request, { ttl: YEAR, immutable: true, tag: "disk" });
+        : serveProxied(origin, path, request, { ttl: YEAR, immutable: true, tag: "disk", signFrom: kiosk });
     }
 
     // 3) Kiosk runtime — allow-listed, revalidated so it tracks the origin.
     if (KIOSK_RE.test(path)) {
       const origin = env.KIOSK_ORIGIN || "https://online.dinamicmultimedia.es";
-      return serveProxied(origin, path, request, { ttl: KIOSK_TTL, immutable: false, tag: "kiosk" });
+      return serveProxied(origin, path, request, { ttl: KIOSK_TTL, immutable: false, tag: "kiosk", browser: true });
     }
 
     // Anything else: refuse, so we never relay arbitrary origin paths.
@@ -201,23 +213,74 @@ function newCode() {
   return out;
 }
 
+// Fetch (and briefly cache) the disk signing token from <kioskOrigin>/papi/sign.
+// Returns null on failure so the proxy still tries the bare URL (degrades, never
+// throws). The token is global across disks, so one value serves every file.
+async function diskToken(kioskOrigin) {
+  const now = Date.now();
+  if (_diskToken.k && now < _diskToken.exp) return _diskToken.k;
+  try {
+    const r = await fetch(`${kioskOrigin.replace(/\/+$/, "")}/papi/sign?token=1`, {
+      headers: { "User-Agent": BROWSER_UA, "Referer": `${kioskOrigin.replace(/\/+$/, "")}/` },
+      cf: { cacheTtl: 0 },
+    });
+    if (r.ok) {
+      const j = await r.json();
+      if (j && j.k) {
+        _diskToken = { k: j.k, exp: now + TOKEN_TTL_MS };
+        return j.k;
+      }
+    }
+  } catch (e) { /* fall through to null */ }
+  return null;
+}
+
 /* --------------------------------------------------------------------- */
 /* Proxy + cache: reverse-proxy an official origin, cached at the edge.   */
 /* `opts.immutable` picks the cache policy (disk vs. kiosk).              */
+/* `opts.signFrom` (disk host) makes the Worker fetch + replay the disk    */
+/* signing token and browser headers the WAF requires.                    */
 /* --------------------------------------------------------------------- */
 async function serveProxied(origin, path, request, opts) {
-  const target = `${origin.replace(/\/+$/, "")}/${path}`;
+  const base = `${origin.replace(/\/+$/, "")}/${path}`;
 
   // Forward only the Range header so Cloudflare can return 206 from cache.
   const headers = new Headers();
   const range = request.headers.get("Range");
   if (range) headers.set("Range", range);
 
+  let target = base;
+  const cf = { cacheEverything: true, cacheTtl: opts.ttl };
+
+  if (opts.signFrom || opts.browser) {
+    // The official hosts sit behind a Cloudflare WAF that only serves a full
+    // browser request fingerprint (UA + Accept* + Referer/Origin + Sec-Fetch-*);
+    // a bare UA+Referer still gets a 403 challenge. Disks additionally need the
+    // short-lived ?k= signing token, fetched from the kiosk origin. We reproduce
+    // both transparently so launcher and kiosk get working bytes, zero steps.
+    const refRoot = (opts.signFrom || origin).replace(/\/+$/, "");
+    if (opts.signFrom) {
+      const token = await diskToken(opts.signFrom);
+      if (token) target = `${base}?k=${encodeURIComponent(token)}`;
+      // Cache under the token-LESS URL so the rotating token never fragments the
+      // edge cache (each disk is filled once per PoP).
+      cf.cacheKey = base;
+    }
+    headers.set("User-Agent", BROWSER_UA);
+    headers.set("Accept", "*/*");
+    headers.set("Accept-Language", "es-ES,es;q=0.9,en;q=0.8");
+    headers.set("Referer", `${refRoot}/`);
+    headers.set("Origin", refRoot);
+    headers.set("Sec-Fetch-Dest", "empty");
+    headers.set("Sec-Fetch-Mode", "cors");
+    headers.set("Sec-Fetch-Site", "same-site");
+  }
+
   const resp = await fetch(target, {
     method: request.method,
     headers,
     // cacheEverything lets Cloudflare cache regardless of the origin's headers.
-    cf: { cacheEverything: true, cacheTtl: opts.ttl },
+    cf,
   });
 
   const out = new Response(resp.body, resp);

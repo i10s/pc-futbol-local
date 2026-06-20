@@ -26,6 +26,16 @@ aunque casi todo funciona también en el plan gratuito.
 
 Both modes add the **CORS** and **Range** headers the official host lacks.
 
+> 🔐 **Automatic disk signing / Firma automática.** The official disk host now
+> sits behind a Cloudflare WAF that **403s** plain automated requests. In proxy
+> mode the Worker handles this transparently: it fetches the short-lived signing
+> token from `<kiosk-origin>/papi/sign`, appends it as `?k=…`, and replays the
+> kiosk browser's full request fingerprint (UA + `Accept*` + `Referer`/`Origin`
+> + `Sec-Fetch-*`). Disks are cached under the token-less URL, so the rotating
+> token never fragments the edge cache. No client changes are needed. El Worker
+> firma cada disco automáticamente (token de `/papi/sign` + cabeceras de
+> navegador), así que el proxy vuelve a servir discos sin pasos manuales.
+
 > ⚠️ **Proxy reliability / Fiabilidad del proxy.** The official origin restricts
 > some regions and data-centre IP ranges. In **proxy mode**, a *cold* cache-miss
 > from a blocked Cloudflare PoP (e.g. some US edges) can return **403** until the

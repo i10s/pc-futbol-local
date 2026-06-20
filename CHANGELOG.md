@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **Disk downloads through the mirror work again.** The official disk host
+  (`discos.dinamicmultimedia.es`) is now behind a Cloudflare WAF that 403s plain
+  automated requests. The mirror Worker now signs each disk transparently: it
+  fetches the short-lived token from `/papi/sign`, appends it as `?k=…`, and
+  replays the kiosk browser's full request fingerprint (UA + `Accept*` +
+  `Referer`/`Origin` + `Sec-Fetch-*`). The same browser headers are now sent for
+  savestates and runtime too. Disks are cached under the token-less URL so the
+  rotating token never fragments the edge cache. No launcher changes required.
+
 ### Added
 - **Shareable career saves.** A new in-kiosk "💾 Partidas" menu lets you export
   your saved career to a small `.pcfsave` file and import it later (fully

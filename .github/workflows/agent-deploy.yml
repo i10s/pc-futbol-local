@@ -29,7 +29,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 22   # wrangler@latest requires Node >= 22
 
       - name: Validate Worker syntax
         run: node --check mirror/cloudflare/worker.js

@@ -32,6 +32,14 @@
 const YEAR = 60 * 60 * 24 * 365;
 const KIOSK_TTL = 60 * 60 * 6; // 6 h edge cache for the (small) front-end
 
+// Shared career saves (opt-in: only active when an R2 "SAVES" bucket is bound).
+// They are the player's own tiny save blocks packed into a ".pcfsave" file.
+const SAVE_MAGIC = "PCFSAVE1";                 // first 8 bytes of every .pcfsave
+const SAVE_MAX = 4 * 1024 * 1024;              // hard upload cap (saves are KB)
+const SAVE_EDGE_TTL = 60 * 5;                  // cache a fetched save 5 min
+const SAVE_RETENTION_MS = 90 * 24 * 60 * 60 * 1000; // auto-expire after 90 days
+const SAVE_CODE_RE = /^[0-9A-HJKMNP-TV-Z]{10}$/;    // Crockford base32 (no I/L/O/U)
+
 // A bare disk-image filename, e.g. "PCF5.bin". No slashes → not a kiosk asset.
 const DISK_RE = /^[A-Za-z0-9._-]+\.bin$/;
 // Savestate blobs (e.g. "pcf5_state.bin") also end in .bin, but they live on the
@@ -48,16 +56,23 @@ export default {
     if (request.method === "OPTIONS") {
       return withCORS(new Response(null, { status: 204 }));
     }
-    if (request.method !== "GET" && request.method !== "HEAD") {
-      return withCORS(new Response("Method Not Allowed", { status: 405 }));
-    }
 
     const url = new URL(request.url);
     const path = decodeURIComponent(url.pathname).replace(/^\/+/, "");
 
+    // Shared career saves (R2-backed). Handled first because uploads use POST,
+    // which the GET/HEAD-only guard below would otherwise reject.
+    if (path === "papi/save" || path.startsWith("papi/save/")) {
+      return handleSaves(request, env, ctx, path, url);
+    }
+
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      return withCORS(new Response("Method Not Allowed", { status: 405 }));
+    }
+
     // Health/info endpoint.
     if (path === "" || path === "_health") {
-      return withCORS(json({ ok: true, mode: env.DISKS ? "r2" : "proxy" }));
+      return withCORS(json({ ok: true, mode: env.DISKS ? "r2" : "proxy", saves: !!env.SAVES }));
     }
 
     // Reject path traversal and absolute/UNC trickery.
@@ -91,6 +106,100 @@ export default {
     return withCORS(new Response("Forbidden", { status: 403 }));
   },
 };
+
+/* --------------------------------------------------------------------- */
+/* Shared career saves: upload (POST) + download by code (GET), on R2.    */
+/* Opt-in: a no-op 503 unless an R2 "SAVES" bucket is bound in            */
+/* wrangler.toml. Strictly validated to limit abuse of the open endpoint: */
+/* magic-byte check, hard size cap, unguessable random codes, 90-day TTL. */
+/* --------------------------------------------------------------------- */
+async function handleSaves(request, env, ctx, path, url) {
+  if (!env.SAVES) {
+    return withCORS(json({ ok: false, error: "saves-disabled" }, 503));
+  }
+
+  // Upload:  POST /papi/save  ->  { ok, code, bytes, retentionDays }
+  if (path === "papi/save") {
+    if (request.method !== "POST") {
+      return withCORS(new Response("Method Not Allowed", { status: 405 }));
+    }
+    const declared = Number(request.headers.get("Content-Length") || 0);
+    if (declared > SAVE_MAX) {
+      return withCORS(json({ ok: false, error: "too-large" }, 413));
+    }
+    const buf = await request.arrayBuffer();
+    if (buf.byteLength === 0) {
+      return withCORS(json({ ok: false, error: "empty" }, 400));
+    }
+    if (buf.byteLength > SAVE_MAX) {
+      return withCORS(json({ ok: false, error: "too-large" }, 413));
+    }
+    if (!hasMagic(buf)) {
+      return withCORS(json({ ok: false, error: "bad-format" }, 415));
+    }
+    const game = sanitizeId(url.searchParams.get("game"));
+    const code = newCode();
+    await env.SAVES.put("saves/" + code, buf, {
+      httpMetadata: { contentType: "application/octet-stream" },
+      customMetadata: { game: game, created: String(Date.now()) },
+    });
+    return withCORS(json({ ok: true, code, bytes: buf.byteLength, retentionDays: 90 }, 201));
+  }
+
+  // Download:  GET /papi/save/<code>
+  const code = path.slice("papi/save/".length);
+  if (!SAVE_CODE_RE.test(code)) {
+    return withCORS(new Response("Not found", { status: 404 }));
+  }
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return withCORS(new Response("Method Not Allowed", { status: 405 }));
+  }
+  const key = "saves/" + code;
+  const obj = await env.SAVES.get(key);
+  if (!obj) {
+    return withCORS(new Response("Not found", { status: 404 }));
+  }
+  // Expiry safety net (in case no bucket lifecycle rule is configured).
+  const created = Number((obj.customMetadata && obj.customMetadata.created) || 0);
+  if (created && Date.now() - created > SAVE_RETENTION_MS) {
+    ctx.waitUntil(env.SAVES.delete(key));
+    return withCORS(new Response("Gone", { status: 410 }));
+  }
+  const h = new Headers();
+  h.set("Content-Type", "application/octet-stream");
+  h.set("Content-Length", String(obj.size));
+  h.set("Cache-Control", `public, max-age=${SAVE_EDGE_TTL}`);
+  h.set("X-PCF-Mirror", "save");
+  if (obj.httpEtag) { h.set("ETag", obj.httpEtag); }
+  if (request.method === "HEAD") {
+    return withCORS(new Response(null, { status: 200, headers: h }));
+  }
+  return withCORS(new Response(obj.body, { status: 200, headers: h }));
+}
+
+function hasMagic(buf) {
+  if (buf.byteLength < 8) { return false; }
+  const u = new Uint8Array(buf, 0, 8);
+  for (let i = 0; i < 8; i++) {
+    if (u[i] !== SAVE_MAGIC.charCodeAt(i)) { return false; }
+  }
+  return true;
+}
+
+// Keep only a short, safe game id for metadata (never trusted for routing).
+function sanitizeId(s) {
+  return s && /^[A-Za-z0-9_]{1,32}$/.test(s) ? s : "";
+}
+
+// 10 unguessable chars of Crockford base32 (~50 bits): not enumerable.
+function newCode() {
+  const alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+  const r = new Uint8Array(10);
+  crypto.getRandomValues(r);
+  let out = "";
+  for (let i = 0; i < 10; i++) { out += alphabet[r[i] % 32]; }
+  return out;
+}
 
 /* --------------------------------------------------------------------- */
 /* Proxy + cache: reverse-proxy an official origin, cached at the edge.   */
@@ -181,15 +290,16 @@ function parseRange(header) {
 /* --------------------------------------------------------------------- */
 function withCORS(resp) {
   resp.headers.set("Access-Control-Allow-Origin", "*");
-  resp.headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-  resp.headers.set("Access-Control-Allow-Headers", "Range, Content-Type");
+  resp.headers.set("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS");
+  resp.headers.set("Access-Control-Allow-Headers", "Range, Content-Type, X-PCF-Save");
   resp.headers.set("Access-Control-Expose-Headers", "Accept-Ranges, Content-Range, Content-Length, ETag");
   resp.headers.set("Access-Control-Max-Age", "86400");
   return resp;
 }
 
-function json(obj) {
+function json(obj, status) {
   return new Response(JSON.stringify(obj), {
+    status: status || 200,
     headers: { "Content-Type": "application/json" },
   });
 }

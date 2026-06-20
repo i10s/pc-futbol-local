@@ -124,6 +124,19 @@ instant**. Your in-game saved games are kept in your browser.
 > from Cloudflare out of the box — the official origin is hit at most once per
 > file. To bypass it, set `PCF_MIRROR=https://discos.dinamicmultimedia.es`.
 
+### Share your saved careers
+
+Your saves live in the browser, but the kiosk adds a **💾 Partidas** menu to take
+them with you:
+
+- **Export / Import** a small `.pcfsave` file — fully offline, share it however
+  you like (USB, chat, email).
+- **Share to cloud / Download by code** — upload your save and get a short
+  10-character code; a friend types it in to download your exact career. Backed
+  by the same Cloudflare mirror (an R2 bucket); shared saves auto-expire after
+  90 days. Point it elsewhere with `PCF_SAVES_BASE` or a `saves` key in
+  `data/mirror.json`. See [mirror/cloudflare/](mirror/cloudflare/).
+
 | id           | Year | Game                                          | Approx. size |
 | ------------ | ---- | --------------------------------------------- | ------------ |
 | `pcf4`       | 1995 | PC Fútbol 4.0                                 | ~0.5 GB      |
@@ -349,6 +362,19 @@ offline e instantáneo**. Tus partidas guardadas se conservan en el navegador.
 > imágenes de disco vienen de Cloudflare desde el primer momento — el origen
 > oficial se toca como mucho una vez por fichero. Para saltártelo, usa
 > `PCF_MIRROR=https://discos.dinamicmultimedia.es`.
+
+### Comparte tus partidas
+
+Tus partidas viven en el navegador, pero el kiosko añade un menú **💾 Partidas**
+para llevártelas contigo:
+
+- **Exportar / Importar** un pequeño fichero `.pcfsave` — totalmente offline,
+  compártelo como quieras (USB, chat, correo).
+- **Compartir en la nube / Descargar con código** — sube tu partida y obtén un
+  código corto de 10 caracteres; un amigo lo introduce para descargar tu carrera
+  exacta. Usa el mismo mirror de Cloudflare (un bucket R2); las partidas
+  compartidas caducan a los 90 días. Cámbialo con `PCF_SAVES_BASE` o la clave
+  `saves` de `data/mirror.json`. Mira [mirror/cloudflare/](mirror/cloudflare/).
 
 | id           | Año  | Juego                                         | Tamaño aprox. |
 | ------------ | ---- | --------------------------------------------- | ------------- |

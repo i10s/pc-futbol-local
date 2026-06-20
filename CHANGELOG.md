@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Shareable career saves.** A new in-kiosk "💾 Partidas" menu lets you export
+  your saved career to a small `.pcfsave` file and import it later (fully
+  offline), or — optionally — **share it to the cloud** and get a short 10-char
+  code a friend can use to download it. Cloud sharing is backed by a Cloudflare
+  Worker + R2 bucket (`pcf-saves`), with strict validation (magic bytes, 4 MB
+  cap, unguessable codes, 90-day expiry) and is feature-flagged: remove the
+  `SAVES` binding to disable it (endpoints then return 503).
+- **`web/pcf-saves.js`** companion script, injected into the mirrored kiosk by
+  the launcher, plus `papi/saves.json` pointing the kiosk at the share endpoint.
+- **Config:** `PCF_SAVES_BASE` env var and a `saves` key in `data/mirror.json`
+  override the share endpoint (defaults to the community Worker).
+
 ## [0.2.0] - 2026-06-19
 
 ### Added

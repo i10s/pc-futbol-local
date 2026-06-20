@@ -28,10 +28,12 @@ $Origin  = if ($env:PCF_ORIGIN_BASE) { $env:PCF_ORIGIN_BASE } else { "https://on
 $Discos  = if ($env:PCF_DISKS_BASE) { $env:PCF_DISKS_BASE } elseif ($env:PCF_MIRROR) { $env:PCF_MIRROR } else { "https://discos.dinamicmultimedia.es" }
 # Optional maintainer-shipped mirror (data/mirror.json) — env vars still win.
 $mirrorFile = Join-Path $DataDir "mirror.json"
+$SavesBase = if ($env:PCF_SAVES_BASE) { $env:PCF_SAVES_BASE } else { "https://pcf-mirror.ifuentes.workers.dev" }
 if (Test-Path $mirrorFile) {
   $m = Get-Content $mirrorFile -Raw | ConvertFrom-Json
   if (-not $env:PCF_ORIGIN_BASE -and $m.origin) { $Origin = $m.origin }
   if (-not $env:PCF_DISKS_BASE -and -not $env:PCF_MIRROR -and $m.disks) { $Discos = $m.disks }
+  if (-not $env:PCF_SAVES_BASE -and $m.saves) { $SavesBase = $m.saves }
 }
 # Host literally referenced inside the official games.js (rewritten to ./disks).
 $DiscosOfficial = "https://discos.dinamicmultimedia.es"
@@ -131,6 +133,21 @@ function Mirror-Runtime {
   }
   '{"maintenance":false}' | Set-Content (Join-Path $PlayDir "papi/config.json") -NoNewline
   '{}' | Set-Content (Join-Path $PlayDir "papi/names.json") -NoNewline
+  # Ship our shareable-saves companion + inject it into the kiosk, plus the
+  # endpoint the in-kiosk "share to cloud" feature talks to.
+  $savesSrc = Join-Path $Root "web/pcf-saves.js"
+  if (Test-Path $savesSrc) {
+    Copy-Item $savesSrc (Join-Path $PlayDir "assets/pcf-saves.js") -Force
+    $kioskFile = Join-Path $PlayDir "kiosk.html"
+    if (Test-Path $kioskFile) {
+      $kiosk = Get-Content $kioskFile -Raw
+      if ($kiosk -notmatch 'assets/pcf-saves\.js') {
+        $kiosk = $kiosk -replace '</body>', '<script src="/assets/pcf-saves.js"></script></body>'
+        $kiosk | Set-Content $kioskFile -NoNewline
+      }
+    }
+  }
+  ('{"base":"' + $SavesBase + '"}') | Set-Content (Join-Path $PlayDir "papi/saves.json") -NoNewline
   New-Item -ItemType File -Force -Path (Join-Path $PlayDir ".runtime-ok") | Out-Null
   Ok "Emulator ready."
 }

@@ -121,6 +121,51 @@ files) and keeps a `.synced` ledger so re-runs skip finished files.
 
 ---
 
+## Shared career saves / Partidas compartidas
+
+Optional. Lets players **share a saved career via a short code**. The kiosk gets
+a "💾 Partidas" menu (added by `web/pcf-saves.js`, injected by the launcher) to:
+
+- **Export / Import** a tiny `.pcfsave` file locally — fully offline, zero infra.
+- **Share to cloud / Download by code** — uploads the `.pcfsave` to your Worker's
+  R2 bucket and returns a 10-char code a friend types in to fetch it.
+
+```bash
+cd mirror/cloudflare
+wrangler r2 bucket create pcf-saves   # the [[r2_buckets]] SAVES binding is preset
+wrangler deploy
+```
+
+The endpoints live on the same Worker:
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/papi/save?game=<id>` | `POST` | Upload a `.pcfsave`; returns `{code,bytes,retentionDays}` |
+| `/papi/save/<code>` | `GET` | Download the shared save by code |
+
+Hardening (all enforced in `worker.js`): **magic-byte** check (`PCFSAVE1`),
+**4 MB** cap, **unguessable** 10-char Crockford-base32 codes (~50 bits),
+**90-day** expiry, CORS. The feature is **opt-in**: with no `SAVES` binding the
+endpoints return `503 saves-disabled`. Remove the `[[r2_buckets]]` SAVES block
+in `wrangler.toml` to turn it off.
+
+Point the launcher at a different share endpoint with `PCF_SAVES_BASE` or a
+`saves` key in `data/mirror.json` (defaults to the community Worker).
+
+> ⚠️ The upload endpoint is **unauthenticated by design** (anyone with the kiosk
+> can share). Codes are unguessable and blobs auto-expire, but add a
+> **Rate limiting rule** on `/papi/save` if you expose this publicly.
+
+Esta función es **opcional**: comparte una partida guardada con un código corto.
+El kiosko muestra un menú "💾 Partidas" para exportar/importar un `.pcfsave`
+local (sin nube) o subirlo a R2 y obtener un código de 10 caracteres que un
+amigo introduce para descargarlo. Validación estricta (cabecera mágica, límite
+de 4 MB, códigos no adivinables, caducidad de 90 días). Sin el binding `SAVES`
+los endpoints devuelven 503. Cámbialo con `PCF_SAVES_BASE` o la clave `saves` de
+`data/mirror.json`.
+
+---
+
 ## Squeeze Cloudflare Pro to the max / Exprimir Cloudflare Pro
 
 Enable these in the dashboard for the mirror zone:

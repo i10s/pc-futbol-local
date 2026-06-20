@@ -31,3 +31,13 @@ KIOSK_ORIGIN = "https://online.dinamicmultimedia.es"
 # [[r2_buckets]]
 # binding = "DISKS"
 # bucket_name = "pcf-disks"
+
+# --- Shared career saves (opt-in) --------------------------------------------
+# Lets players share a saved career via a short code: the kiosk uploads a tiny
+# ".pcfsave" blob here and a friend downloads it by code. Strictly validated in
+# worker.js (magic bytes, 4 MB cap, unguessable codes, 90-day expiry). Remove
+# this binding to disable the feature (the endpoints then return 503).
+#   npx wrangler r2 bucket create pcf-saves
+[[r2_buckets]]
+binding = "SAVES"
+bucket_name = "pcf-saves"

@@ -29,13 +29,18 @@ json_get() {
 }
 
 discos_default="$DISCOS_OFFICIAL"; origin_default="$ORIGIN_OFFICIAL"
+saves_default="https://pcf-mirror.ifuentes.workers.dev"
 if [ -f "$DATA_DIR/mirror.json" ]; then
   m="$(json_get disks  "$DATA_DIR/mirror.json")"; [ -n "$m" ] && discos_default="$m"
   m="$(json_get origin "$DATA_DIR/mirror.json")"; [ -n "$m" ] && origin_default="$m"
+  m="$(json_get saves  "$DATA_DIR/mirror.json")"; [ -n "$m" ] && saves_default="$m"
 fi
 
 ORIGIN="${PCF_ORIGIN_BASE:-$origin_default}"
 DISCOS="${PCF_DISKS_BASE:-${PCF_MIRROR:-$discos_default}}"
+# Cloud share endpoint for saved careers (a Worker with an R2 SAVES bucket).
+# Defaults to the community mirror; override with PCF_SAVES_BASE or mirror.json.
+SAVES_BASE="${PCF_SAVES_BASE:-$saves_default}"
 PORT="${PCF_PORT:-8782}"
 
 # Be gentle with the origin server:
@@ -213,6 +218,16 @@ mirror_runtime() {
   # Stub the small backend endpoints so the kiosk runs fully offline.
   printf '%s' '{"maintenance":false}'         > "$PLAY_DIR/papi/config.json"
   printf '%s' '{}'                            > "$PLAY_DIR/papi/names.json"
+
+  # Ship our shareable-saves companion and inject it into the kiosk, plus the
+  # endpoint the in-kiosk "share to cloud" feature talks to.
+  if [ -f "$PCF_ROOT/web/pcf-saves.js" ]; then
+    cp "$PCF_ROOT/web/pcf-saves.js" "$PLAY_DIR/assets/pcf-saves.js"
+    if [ -f "$PLAY_DIR/kiosk.html" ] && ! grep -q 'assets/pcf-saves.js' "$PLAY_DIR/kiosk.html"; then
+      sed -i.bak 's#</body>#<script src="/assets/pcf-saves.js"></script></body>#' "$PLAY_DIR/kiosk.html" && rm -f "$PLAY_DIR/kiosk.html.bak"
+    fi
+  fi
+  printf '{"base":"%s"}' "$SAVES_BASE" > "$PLAY_DIR/papi/saves.json"
 
   touch "$PLAY_DIR/.runtime-ok"
   ok "Emulator ready."

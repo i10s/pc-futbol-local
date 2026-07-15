@@ -37,7 +37,7 @@ jobs:
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 
       # Always work from master so the formula bump lands on the default branch.
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: master
           fetch-depth: 0

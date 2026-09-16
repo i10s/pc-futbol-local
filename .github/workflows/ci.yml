@@ -14,7 +14,7 @@ jobs:
     name: Shell + Python + server test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: ShellCheck
         run: shellcheck -e SC1091 pcf scripts/lib.sh scripts/selftest.sh scripts/prewarm.sh mirror/cloudflare/sync-to-r2.sh
@@ -40,8 +40,8 @@ jobs:
     name: Agent driver + parser tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       - name: Syntax check
@@ -53,12 +53,12 @@ jobs:
     name: Homebrew formula
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Ruby syntax
         run: ruby -c Formula/pc-futbol-local.rb
       - name: Set up Homebrew
         # Pinned to a commit SHA (supply-chain safety); Dependabot bumps it.
-        uses: Homebrew/actions/setup-homebrew@d4a9d3894e99dfb50a41c089a3dfcbd6009152a1 # master
+        uses: Homebrew/actions/setup-homebrew@304fc86d2c26bcd269547dbcfcfb4c853e710779 # master
       - name: brew style
         run: brew style Formula/pc-futbol-local.rb
 
@@ -66,7 +66,7 @@ jobs:
     name: PowerShell launcher parses
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Parse pcf.ps1
         shell: pwsh
         run: |
